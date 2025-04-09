@@ -25,6 +25,7 @@ from nemo.collections.nlp.models.language_modeling.megatron_t5_prompt_learning_m
 from nemo.collections.nlp.modules.common.megatron.megatron_init import fake_initialize_model_parallel
 from nemo.collections.nlp.parts.nlp_overrides import NLPDDPStrategy
 from nemo.core.config import hydra_runner
+from nemo.utils import get_current_device
 from nemo.utils.app_state import AppState
 from nemo.utils.model_utils import inject_model_parallel_rank
 
@@ -112,7 +113,7 @@ def main(cfg) -> None:
         if trainer.strategy.launcher is not None:
             trainer.strategy.launcher.launch(dummy, trainer=trainer)
         trainer.strategy.setup_environment()
-    model = model.cuda()
+    model = model.to(device=get_current_device())
     model.on_train_end()
 
 

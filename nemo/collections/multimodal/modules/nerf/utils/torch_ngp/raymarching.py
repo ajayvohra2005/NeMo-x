@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from nemo.utils import get_current_device
 import torch
 from torch.autograd import Function
 from torch.cuda.amp import custom_bwd, custom_fwd
@@ -57,9 +58,9 @@ class _near_far_from_aabb(Function):
             fars: float, [N]
         '''
         if not rays_o.is_cuda:
-            rays_o = rays_o.cuda()
+            rays_o = rays_o.to(device=get_current_device())
         if not rays_d.is_cuda:
-            rays_d = rays_d.cuda()
+            rays_d = rays_d.to(device=get_current_device())
 
         rays_o = rays_o.contiguous().view(-1, 3)
         rays_d = rays_d.contiguous().view(-1, 3)
@@ -92,9 +93,9 @@ class _sph_from_ray(Function):
             coords: [N, 2], in [-1, 1], theta and phi on a sphere. (further-surface)
         '''
         if not rays_o.is_cuda:
-            rays_o = rays_o.cuda()
+            rays_o = rays_o.to(device=get_current_device())
         if not rays_d.is_cuda:
-            rays_d = rays_d.cuda()
+            rays_d = rays_d.to(device=get_current_device())
 
         rays_o = rays_o.contiguous().view(-1, 3)
         rays_d = rays_d.contiguous().view(-1, 3)
@@ -123,7 +124,7 @@ class _morton3D(Function):
 
         '''
         if not coords.is_cuda:
-            coords = coords.cuda()
+            coords = coords.to(device=get_current_device())
 
         N = coords.shape[0]
 
@@ -148,7 +149,7 @@ class _morton3D_invert(Function):
 
         '''
         if not indices.is_cuda:
-            indices = indices.cuda()
+            indices = indices.to(device=get_current_device())
 
         N = indices.shape[0]
 
@@ -175,7 +176,7 @@ class _packbits(Function):
             bitfield: uint8, [C, H * H * H / 8]
         '''
         if not grid.is_cuda:
-            grid = grid.cuda()
+            grid = grid.to(device=get_current_device())
         grid = grid.contiguous()
 
         C = grid.shape[0]
@@ -204,7 +205,7 @@ class _flatten_rays(Function):
             res: [M], flattened ray index.
         '''
         if not rays.is_cuda:
-            rays = rays.cuda()
+            rays = rays.to(device=get_current_device())
         rays = rays.contiguous()
 
         N = rays.shape[0]
@@ -264,11 +265,11 @@ class _march_rays_train(Function):
         '''
 
         if not rays_o.is_cuda:
-            rays_o = rays_o.cuda()
+            rays_o = rays_o.to(device=get_current_device())
         if not rays_d.is_cuda:
-            rays_d = rays_d.cuda()
+            rays_d = rays_d.to(device=get_current_device())
         if not density_bitfield.is_cuda:
-            density_bitfield = density_bitfield.cuda()
+            density_bitfield = density_bitfield.to(device=get_current_device())
 
         rays_o = rays_o.float().contiguous().view(-1, 3)
         rays_d = rays_d.float().contiguous().view(-1, 3)
@@ -471,9 +472,9 @@ class _march_rays(Function):
         '''
 
         if not rays_o.is_cuda:
-            rays_o = rays_o.cuda()
+            rays_o = rays_o.to(device=get_current_device())
         if not rays_d.is_cuda:
-            rays_d = rays_d.cuda()
+            rays_d = rays_d.to(device=get_current_device())
 
         rays_o = rays_o.float().contiguous().view(-1, 3)
         rays_d = rays_d.float().contiguous().view(-1, 3)

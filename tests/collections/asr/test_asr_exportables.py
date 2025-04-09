@@ -14,6 +14,7 @@
 import os
 import tempfile
 
+from nemo.utils import get_current_device
 import onnx
 import pytest
 import torch.cuda
@@ -44,7 +45,7 @@ class TestExportable:
                 'decoder': DictConfig(self.decoder_dict),
             }
         )
-        model = EncDecCTCModel(cfg=model_config).cuda()
+        model = EncDecCTCModel(cfg=model_config).to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'qn.onnx')
             model.export(
@@ -58,7 +59,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_EncDecClassificationModel_export_to_onnx(self, speech_classification_model):
-        model = speech_classification_model.cuda()
+        model = speech_classification_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'edc.onnx')
             model.export(
@@ -72,7 +73,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_EncDecSpeakerLabelModel_export_to_onnx(self, speaker_label_model):
-        model = speaker_label_model.cuda()
+        model = speaker_label_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'sl.onnx')
             model.export(output=filename)
@@ -84,7 +85,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_EncDecCitrinetModel_export_to_onnx(self, citrinet_model):
-        model = citrinet_model.cuda()
+        model = citrinet_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'citri.onnx')
             model.export(output=filename)
@@ -98,7 +99,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_ConformerModel_export_to_onnx(self, conformer_model):
-        model = conformer_model.cuda()
+        model = conformer_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir, torch.cuda.amp.autocast():
             filename = os.path.join(tmpdir, 'conf.onnx')
             device = next(model.parameters()).device
@@ -111,7 +112,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_SqueezeformerModel_export_to_onnx(self, squeezeformer_model):
-        model = squeezeformer_model.cuda()
+        model = squeezeformer_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir, torch.cuda.amp.autocast():
             filename = os.path.join(tmpdir, 'squeeze.ts')
             device = next(model.parameters()).device
@@ -122,7 +123,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_EncDecCitrinetModel_limited_SE_export_to_onnx(self, citrinet_model):
-        model = citrinet_model.cuda()
+        model = citrinet_model.to(device=get_current_device())
         asr_module_utils.change_conv_asr_se_context_window(model, context_window=24, update_config=False)
 
         with tempfile.TemporaryDirectory() as tmpdir, torch.cuda.amp.autocast():
@@ -139,7 +140,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_EncDecRNNTModel_export_to_onnx(self, citrinet_rnnt_model):
-        model = citrinet_rnnt_model.cuda()
+        model = citrinet_rnnt_model.to(device=get_current_device())
 
         with tempfile.TemporaryDirectory() as tmpdir:
             fn = 'citri_rnnt.onnx'
@@ -190,7 +191,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_EncDecRNNTModel_export_to_ts(self, citrinet_rnnt_model):
-        model = citrinet_rnnt_model.cuda()
+        model = citrinet_rnnt_model.to(device=get_current_device())
 
         with tempfile.TemporaryDirectory() as tmpdir:
             fn = 'citri_rnnt.ts'
@@ -256,7 +257,7 @@ class TestExportable:
         )
         model.add_adapter('temp', cfg=adapter_cfg)
 
-        model = model.cuda()
+        model = model.to(device=get_current_device())
 
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'qn.onnx')

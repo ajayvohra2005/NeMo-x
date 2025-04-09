@@ -17,6 +17,7 @@ import tempfile
 from pathlib import Path
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device, get_current_device_type
 import numpy as np
 import pytest
 import torch
@@ -75,12 +76,8 @@ def llm_model_config():
 def trainer_config():
     config_trainer = DictConfig({})
 
-    if torch.cuda.is_available():
-        accelerator = "gpu"
-        torch.set_default_device('cuda')
-    else:
-        accelerator = "cpu"
-    config_trainer.accelerator = accelerator
+    device_type = get_current_device_type()
+    config_trainer.accelerator = "gpu" if device_type == "cuda" else device_type
     config_trainer.devices = 1
     config_trainer.num_nodes = 1
     config_trainer.max_epochs = 4
@@ -172,9 +169,9 @@ class TestModularAudioGPTModel:
         llm_model_config.model.perception = perception_model_config
         trainer, llm_model_config.trainer = trainer_config
         model = ModularAudioGPTModel.restore_from_pretrained_models(llm_model_config, trainer=trainer)
-        model.cuda()
+        model.to(device=get_current_device())
         model.train()
-        batch = {key: val.cuda(non_blocking=True) for key, val in test_batch.items()}
+        batch = {key: val.to(get_current_device()) for key, val in test_batch.items()}
         encoder_input, attention_mask, labels, loss_mask, encoder_length = model.prepare_llm_input(batch)
         assert encoder_input.shape == (17, 2, 768)
         assert np.allclose(encoder_input.sum().cpu().detach().numpy(), 15.783691)
@@ -189,7 +186,7 @@ class TestModularAudioGPTModel:
         llm_model_config.model.perception = perception_model_config
         trainer, llm_model_config.trainer = trainer_config
         model = ModularAudioGPTModel.restore_from_pretrained_models(llm_model_config, trainer=trainer)
-        model.cuda()
+        model.to(device=get_current_device())
         model.on_train_start()
         model.setup()
         model.train()
@@ -202,9 +199,9 @@ class TestModularAudioGPTModel:
         llm_model_config.model.perception = perception_model_config
         trainer, llm_model_config.trainer = trainer_config
         model = ModularAudioGPTModel.restore_from_pretrained_models(llm_model_config, trainer=trainer)
-        model.cuda()
+        model.to(device=get_current_device())
         model.train()
-        batch = {key: val.cuda(non_blocking=True) for key, val in test_batch.items()}
+        batch = {key: val.to(get_current_device()) for key, val in test_batch.items()}
         loss_mean = model.validation_step(iter([batch]), 0)
         assert np.allclose(loss_mean['loss'].cpu().detach().numpy(), 5.7052)
 
@@ -214,9 +211,9 @@ class TestModularAudioGPTModel:
         llm_model_config.model.perception = perception_model_config
         trainer, llm_model_config.trainer = trainer_config
         model = ModularAudioGPTModel.restore_from_pretrained_models(llm_model_config, trainer=trainer)
-        model.cuda()
+        model.to(device=get_current_device())
         model.train()
-        batch = {key: val.cuda(non_blocking=True) for key, val in test_batch.items()}
+        batch = {key: val.to(get_current_device()) for key, val in test_batch.items()}
         response = model.predict_step(batch, 0, 0)
         ground_truth = 'to suit you. Please note these are lecture notes from an alternate presentation. Copyright  ⁇ '
         assert response['sentences'][0] == ground_truth

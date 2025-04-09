@@ -15,6 +15,7 @@
 import argparse
 
 import requests
+from nemo.utils import get_current_device
 import torch
 from PIL import Image
 from transformers import AutoProcessor
@@ -50,11 +51,11 @@ def generate(model, processor, raw_image, text):
 
     input_text = processor.apply_chat_template(messages, add_generation_prompt=True)
 
-    input_ids = processor.tokenizer(input_text, return_tensors='pt').input_ids.cuda()
+    input_ids = processor.tokenizer(input_text, return_tensors='pt').input_ids.to(device=get_current_device())
     inputs = processor(input_text, raw_image, return_tensors='pt').to(0, torch.float32)
 
     input_ids[input_ids == 32000] = -200
-    media = inputs['pixel_values'].cuda()
+    media = inputs['pixel_values'].to(device=get_current_device())
     media = media.reshape(media.size(1), 3, 336, 336)
     position_ids = (
         torch.arange(input_ids.size(1), dtype=torch.long, device=input_ids.device).unsqueeze(0).expand_as(input_ids)
@@ -62,11 +63,11 @@ def generate(model, processor, raw_image, text):
 
     generated_ids = input_ids.clone()
     width, height = raw_image.size
-    image_sizes = torch.tensor([[height, width]], dtype=torch.long).cuda()
+    image_sizes = torch.tensor([[height, width]], dtype=torch.long).to(device=get_current_device())
 
     for _ in range(20):
         with torch.no_grad():
-            attention_mask = (input_ids != 0).long().cuda()
+            attention_mask = (input_ids != 0).long().to(device=get_current_device())
             output = model(
                 media=media,
                 input_ids=input_ids,
@@ -127,7 +128,7 @@ def main(args) -> None:
         model = vlm.LlavaNextModel(vlm.LlavaNextConfig7B(), tokenizer=tokenizer)
         model = fabric.load_model(args.local_model_path, model)
 
-    model = model.module.cuda()
+    model = model.module.to(device=get_current_device())
     model.eval()
     model = model.to(torch.bfloat16)
 

@@ -15,6 +15,7 @@
 import itertools
 from typing import Any, List
 
+from nemo.utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf import OmegaConf
@@ -33,7 +34,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
 )
 from nemo.collections.nlp.parts.nlp_overrides import NLPSaveRestoreConnector
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import AppState, logging
+from nemo.utils import AppState, logging, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -57,6 +58,7 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ['MegatronT5PromptLearningModel']
 
+xm = get_xla_model()
 
 class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
     """
@@ -135,7 +137,7 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
                 enc_input=encoder_input,
             )
         else:
-            with torch.autocast(device_type="cuda", dtype=self.autocast_dtype):
+            with torch.autocast(device_type=get_current_device_type(), dtype=self.autocast_dtype):
                 output = self.frozen_model.enc_dec_model(
                     enc_input_ids=None,
                     enc_attn_mask=enc_mask,
@@ -207,7 +209,7 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
             loss_mean = loss_tensor.mean()
         else:
             # we're not on the last pipeline stage so no losses
-            loss_mean = torch.tensor(0.0).cuda()
+            loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
         return loss_mean
 
@@ -215,7 +217,7 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
         # FIXME: consolidate this method into MegatronLMEncoderDecoderModel (or have a common base class)
         def fwd_output_and_loss_func(dataloader_iter, model):
             batch = next(dataloader_iter)
-            batch = [x.cuda(non_blocking=True) for x in batch]
+            batch = [x.to(get_current_device()) for x in batch]
             enc_input, dec_input, labels, loss_mask, enc_mask, dec_mask, position_ids, taskname_ids = batch
 
             output_tensor, encoder_input = model(
@@ -352,7 +354,7 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
                 # only the last pipeline parallel stages return loss
                 averaged_loss = torch.stack([i['loss'] for i in outputs]).mean()
             else:
-                averaged_loss = torch.tensor(0.0).cuda()
+                averaged_loss = torch.tensor(0.0).to(device=get_current_device())
 
             # we can only log on one rank if it is rank zero so we broadcast from last rank
             torch.distributed.broadcast(averaged_loss, get_last_rank())
@@ -379,7 +381,8 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
             torch.distributed.all_gather_object(
                 gather_results,
                 [(input, pred, label) for (input, pred, label) in zip(all_inputs, all_preds, all_labels)],
-                group=parallel_state.get_data_parallel_group(),
+                group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
             )
 
             # Deduplicate sentences that may have been distributed across multiple data parallel ranks.
@@ -397,7 +400,7 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
                 val_metric = list(val_metric_dict.items())[0][1]
                 metric_name = list(val_metric_dict.items())[0][0]
             else:
-                val_metric = torch.tensor(0.0).cuda()
+                val_metric = torch.tensor(0.0).to(device=get_current_device())
                 metric_name = ''
 
             self.log(f'val_{metric_name}', val_metric, prog_bar=True, rank_zero_only=True, batch_size=1)
@@ -474,7 +477,7 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
                 encoder_input = input_embeds
 
         else:
-            encoder_input = torch.zeros((batch_size, seq_length, self.hidden_size), dtype=self.autocast_dtype).cuda()
+            encoder_input = torch.zeros((batch_size, seq_length, self.hidden_size), dtype=self.autocast_dtype).to(device=get_current_device())
 
         predicted_token_ids, log_probs = self.frozen_model.decode(
             tokens_enc=input_ids,
@@ -517,7 +520,8 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
         torch.distributed.all_gather_object(
             gather_results,
             [(input, pred, label) for (input, pred, label) in zip(all_inputs, all_preds, all_labels)],
-            group=parallel_state.get_data_parallel_group(),
+            group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
         )
 
         # Deduplicate sentences that may have been distributed across multiple data parallel ranks.

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from nemo.utils import get_current_device
 import numpy as np
 import pytest
 import torch
@@ -28,7 +29,7 @@ def wrap_and_call(fn, acts, labels, device):
         acts = torch.FloatTensor(acts)
 
     if 'cuda' in device:
-        acts = acts.cuda()
+        acts = acts.to(device=get_current_device())
 
     if not acts.requires_grad:
         acts.requires_grad = True
@@ -40,9 +41,9 @@ def wrap_and_call(fn, acts, labels, device):
     label_lengths = torch.LongTensor(label_lengths)
     log_probs = torch.nn.functional.log_softmax(acts.transpose(0, 1), -1)
     if 'cuda' in device:
-        labels = labels.cuda()
-        lengths = lengths.cuda()
-        label_lengths = label_lengths.cuda()
+        labels = labels.to(device=get_current_device())
+        lengths = lengths.to(device=get_current_device())
+        label_lengths = label_lengths.to(device=get_current_device())
 
     costs = fn(log_probs, labels, lengths, label_lengths)
     cost = torch.sum(costs)

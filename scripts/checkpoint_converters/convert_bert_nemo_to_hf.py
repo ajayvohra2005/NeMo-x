@@ -24,6 +24,7 @@ Example to run this conversion script:
 
 from argparse import ArgumentParser
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn.functional as F
 from lightning.pytorch import Trainer
@@ -251,8 +252,8 @@ def convert(args):
     # Tokenize the input texts
     hf_tokenizer = AutoTokenizer.from_pretrained(nemo_config.tokenizer["type"])
     batch_dict = hf_tokenizer(input_texts, max_length=512, padding=True, truncation=True, return_tensors='pt')
-    batch_dict_cuda = {k: v.cuda() for k, v in batch_dict.items()}
-    hf_model = hf_model.cuda().eval()
+    batch_dict_cuda = {k: v.to(device=get_current_device()) for k, v in batch_dict.items()}
+    hf_model = hf_model.to(device=get_current_device()).eval()
     nemo_model = nemo_model.eval()
     with torch.no_grad():
         hf_outputs = hf_model(**batch_dict_cuda)

@@ -18,6 +18,7 @@ from functools import partial
 from typing import Any, Dict, List, Optional, Union
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn as nn
@@ -73,7 +74,7 @@ from nemo.collections.nlp.parts.peft_config import PEFT_CONFIG_MAP, PEFTConfig
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.common import Serialization
 from nemo.core.classes.mixins.adapter_mixins import AdapterModuleMixin
-from nemo.utils import logging, model_utils
+from nemo.utils import logging, model_utils, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -95,6 +96,7 @@ except (ImportError, ModuleNotFoundError):
 
 __conditioning_keys__ = {'concat': 'c_concat', 'crossattn': 'c_crossattn', 'adm': 'y'}
 
+xm = get_xla_model()
 
 def random_dropout(embeddings, drop_rate):
     r"""
@@ -105,8 +107,8 @@ def random_dropout(embeddings, drop_rate):
         drop_rate (float): Rate of dropping the embedding.
     """
     nsamples = embeddings.shape[0]
-    zero_flag = torch.ones(nsamples, 1, 1, device=torch.cuda.current_device()).to(embeddings.dtype) * (1 - drop_rate)
-    zero_flag = torch.bernoulli(zero_flag).cuda(non_blocking=True)
+    zero_flag = torch.ones(nsamples, 1, 1, device=get_current_device()).to(embeddings.dtype) * (1 - drop_rate)
+    zero_flag = torch.bernoulli(zero_flag).to(get_current_device())
     embeddings = embeddings * zero_flag
     return embeddings
 
@@ -163,7 +165,7 @@ class DDPM(torch.nn.Module):
         if not cuda_graph_enabled:
             logging.info("Use custom random generator")
             self.rng = torch.Generator(
-                device=torch.cuda.current_device(),
+                device=get_current_device(),
             )
         else:
             logging.info("Use system random generator since CUDA graph enabled")
@@ -1192,8 +1194,8 @@ class LatentDiffusion(DDPM, Serialization):
             model_output = model_output.type(torch.float32)
         loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
         loss_dict.update({f'{prefix}/loss_simple': loss_simple.mean()})
-        self.logvar = self.logvar.cuda(non_blocking=True)
-        logvar_t = self.logvar[t].cuda(non_blocking=True)
+        self.logvar = self.logvar.to(get_current_device())
+        logvar_t = self.logvar[t].to(get_current_device())
         loss = loss_simple / torch.exp(logvar_t) + logvar_t
         # loss = loss_simple / torch.exp(self.logvar) + self.logvar
         if self.learn_logvar:
@@ -1328,7 +1330,7 @@ class LatentDiffusion(DDPM, Serialization):
         else:
             b = batch_size = shape[0]
         if x_T is None:
-            img = torch.randn(shape, generator=self.rng, device=torch.cuda.current_device())
+            img = torch.randn(shape, generator=self.rng, device=get_current_device())
         else:
             img = x_T
         intermediates = []
@@ -1356,7 +1358,7 @@ class LatentDiffusion(DDPM, Serialization):
             temperature = [temperature] * timesteps
 
         for i in iterator:
-            ts = torch.full((b,), i, device=torch.cuda.current_device(), dtype=torch.long)
+            ts = torch.full((b,), i, device=get_current_device(), dtype=torch.long)
             if self.shorten_cond_schedule:
                 assert self.model.conditioning_key != 'hybrid'
                 tc = self.cond_ids[ts].to(cond.device)
@@ -1735,7 +1737,7 @@ class MegatronLatentDiffusion(NLPAdapterModelMixin, MegatronBaseModel):
     def on_train_batch_start(self, batch, batch_idx, dataloader_idx=0):
         if self.cfg.scale_by_std and self.current_epoch == 0 and self.global_step == 0 and batch_idx == 0:
             assert self.cfg.scale_factor == 1.0, 'rather not use custom rescaling and std-rescaling simultaneously'
-            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].cuda(non_blocking=True)
+            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].to(get_current_device())
             self.model.on_train_batch_start(batch, batch_idx)
 
     def fwd_bwd_step(self, dataloader_iter, forward_only):
@@ -1785,7 +1787,7 @@ class MegatronLatentDiffusion(NLPAdapterModelMixin, MegatronBaseModel):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0, device=torch.cuda.current_device())
+                loss_mean = torch.tensor(0.0, device=get_current_device())
 
         if self.log_train_loss:
             # When using pipeline parallelism, loss is calculated only in the last pipeline stage and
@@ -1923,10 +1925,10 @@ class MegatronLatentDiffusion(NLPAdapterModelMixin, MegatronBaseModel):
             Global batch is a list of micro batches.
             """
             # noise_map, condition
-            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].cuda(non_blocking=True)
+            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].to(get_current_device())
             if isinstance(batch[self.cfg.cond_stage_key], torch.Tensor):
                 # in the case of precached text embeddings, cond_stage is also a tensor
-                batch[self.cfg.cond_stage_key] = batch[self.cfg.cond_stage_key].cuda(non_blocking=True)
+                batch[self.cfg.cond_stage_key] = batch[self.cfg.cond_stage_key].to(get_current_device())
 
             # SD has more dedicated structure for encoding, so we enable autocasting here as well
             with torch.cuda.amp.autocast(
@@ -1948,7 +1950,7 @@ class MegatronLatentDiffusion(NLPAdapterModelMixin, MegatronBaseModel):
             if isinstance(batch, tuple):
                 batch, _, _ = batch  # PTL dataloader iter fix
             batch = process_batch(batch)
-            batch = [x.cuda(non_blocking=True) for x in batch]
+            batch = [x.to(get_current_device()) for x in batch]
             if len(self.conditioning_keys) == 0:
                 x, c = batch
             else:
@@ -2003,9 +2005,14 @@ class MegatronLatentDiffusion(NLPAdapterModelMixin, MegatronBaseModel):
             num_parameters_on_device = sum([p.nelement() for p in self.model.parameters()])
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda(non_blocking=True)
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
 
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                          groups=parallel_state.get_pipeline_model_parallel_groups(), 
+                          pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '
@@ -2331,11 +2338,7 @@ class MegatronLatentDiffusion(NLPAdapterModelMixin, MegatronBaseModel):
             return state_dict
 
         # Determine device
-        if map_location is None:
-            if torch.cuda.is_available():
-                map_location = 'cuda'
-            else:
-                map_location = 'cpu'
+        map_location = map_location if map_location else get_current_device()
 
         if filepath.endswith('.nemo'):
             conf, state_dict = self._get_config_and_state_dict_from_nemo(filepath, map_location)

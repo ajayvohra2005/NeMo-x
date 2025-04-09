@@ -102,7 +102,7 @@ def main(cfg) -> None:
         top1 = top1 / n
         top5 = top5 / n
 
-    imagenet_metric = torch.zeros(2).cuda()
+    imagenet_metric = torch.zeros(2).to(device=get_current_device())
     imagenet_metric[0], imagenet_metric[1] = top1, top5
     imagenet_metric = average_losses_across_data_parallel_group(imagenet_metric)
 

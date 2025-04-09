@@ -101,7 +101,7 @@ class EvalContextBiasingConfig:
     # Parameters for inference
     acoustic_batch_size: int = 128  # The batch size to calculate log probabilities
     beam_batch_size: int = 128  # The batch size to be used for beam search decoding
-    device: str = "cuda"  # The device to load the model onto to calculate log probabilities
+    device: torch.device = None  # The device to load the model onto to calculate log probabilities
     use_amp: bool = False  # Whether to use AMP if available to calculate log probabilities
     num_workers: int = 1  # Number of workers for DataLoader
     decoder_type: Optional[str] = None  # [ctc, rnnt] decoder type for asr model
@@ -359,7 +359,7 @@ def main(cfg: EvalContextBiasingConfig):
             audio_file_paths.append(str(audio_file.absolute()))
 
     # manual calculation of encoder_embeddings
-    with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
+    with torch.autocast(asr_model.device.type, enabled=cfg.use_amp):
         with torch.no_grad():
             asr_model.eval()
             asr_model.encoder.freeze()

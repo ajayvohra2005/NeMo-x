@@ -16,6 +16,7 @@ import argparse
 import os
 import shutil
 
+from nemo.utils import get_current_device
 import torch
 
 from nemo.collections.common.video_tokenizers.cosmos_tokenizer import CausalVideoTokenizer
@@ -85,7 +86,7 @@ def main():
         },
     )
 
-    input_tensor = torch.randn(max_shape).to('cuda').to(torch.float)
+    input_tensor = torch.randn(max_shape).to(device=get_current_device()).to(torch.float)
     output = model_wrapper(input_tensor)
 
 

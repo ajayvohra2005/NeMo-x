@@ -22,6 +22,7 @@ from pathlib import Path
 
 import hydra.utils
 import librosa
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from omegaconf import open_dict
@@ -165,7 +166,7 @@ def get_mel_spectrogram(fb, wav, stft_params):
         n_fft=stft_params['n_fft'],  # 1024
         hop_length=stft_params['hop_length'],  # 256
         win_length=stft_params['win_length'],  # 1024
-        window=window_fn(stft_params['win_length'], periodic=False).to(torch.float).to('cuda') if window_fn else None,
+        window=window_fn(stft_params['win_length'], periodic=False).to(torch.float).to(device=get_current_device()) if window_fn else None,
         return_complex=True,
         center=True,
     )

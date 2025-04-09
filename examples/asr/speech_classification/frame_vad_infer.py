@@ -54,7 +54,7 @@ from nemo.collections.asr.parts.utils.vad_utils import (
 from nemo.core.config import hydra_runner
 from nemo.utils import logging
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = get_current_device()
 
 
 @hydra_runner(config_path="../conf/vad", config_name="frame_vad_infer_postprocess")

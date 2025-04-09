@@ -14,6 +14,7 @@
 
 from typing import Optional
 
+from nemo.utils import get_current_device
 import torch
 
 from nemo.core.classes import Loss
@@ -87,7 +88,7 @@ class MultiSimilarityLoss(Loss):
             losses.append(pos_term + neg_term)
 
         if len(losses) == 0:
-            loss = torch.zeros([], requires_grad=True).cuda()
+            loss = torch.zeros([], requires_grad=True).to(device=get_current_device())
             logging.info(f'Encountered zero loss in multisimloss, loss = {loss}. No hard examples found in the batch')
         else:
             loss = torch.sum(torch.stack(losses)) / logits.size(0)

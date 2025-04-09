@@ -112,9 +112,9 @@ def main(cfg) -> None:
     ):
         total = correct = 0.0
         for tokens, labels in tqdm(test_loader):
-            logits = model(tokens.cuda())
+            logits = model(tokens.to(device=get_current_device()))
             class_indices = torch.argmax(logits, -1)
-            correct += (class_indices == labels.cuda()).float().sum()
+            correct += (class_indices == labels.to(device=get_current_device())).float().sum()
             total += len(labels)
 
     if is_global_rank_zero:

@@ -39,6 +39,7 @@ import csv
 import os
 from glob import glob
 
+from nemo.utils import get_current_device
 import open_clip
 import torch
 import torch.nn as nn
@@ -130,7 +131,7 @@ if __name__ == '__main__':
                     texts, sampler=torch.utils.data.distributed.DistributedSampler(texts)
                 )
 
-                ave_sim = torch.tensor(0.0).cuda()
+                ave_sim = torch.tensor(0.0).to(device=get_current_device())
                 count = 0
                 for text, img in zip(tqdm(txts), imgs):
                     with open(text[0], 'r') as f:

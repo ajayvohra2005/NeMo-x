@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 
@@ -56,9 +57,9 @@ class NormalConsistencyLoss(nn.Module):
             # Elliminate duplicates and return inverse mapping
             unique_edges, idx_map = torch.unique(sorted_edges, dim=0, return_inverse=True)
 
-            tris = torch.arange(attr_idx.shape[0]).repeat_interleave(3).cuda()
+            tris = torch.arange(attr_idx.shape[0]).repeat_interleave(3).to(device=get_current_device())
 
-            tris_per_edge = torch.zeros((unique_edges.shape[0], 2), dtype=torch.int64).cuda()
+            tris_per_edge = torch.zeros((unique_edges.shape[0], 2), dtype=torch.int64).to(device=get_current_device())
 
             # Compute edge to face table
             mask0 = order[:, 0] == 0

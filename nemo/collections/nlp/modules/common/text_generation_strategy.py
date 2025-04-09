@@ -19,6 +19,7 @@ import re
 import warnings
 from typing import List, Set, Tuple
 
+from nemo.utils import get_current_device
 import torch
 from transformers import CLIPImageProcessor
 
@@ -285,7 +286,7 @@ class GPTModelTextGenerationStrategy(TextGenerationStrategy):
         """initialize the batch data before the inference steps."""
         # Move to GPU.
         tokenizer = self.model.tokenizer
-        tokens = context_tokens.contiguous().cuda()
+        tokens = context_tokens.contiguous().to(device=get_current_device())
         # Get the attention mask and postition ids.
         self.attention_mask, _, self.position_ids = get_ltor_masks_and_position_ids(
             tokens,
@@ -332,9 +333,9 @@ class GPTModelTextGenerationStrategy(TextGenerationStrategy):
             attention_mask_repeat = torch.concat([self.attention_mask for _ in range(micro_batch_size)])
 
         setkey_value_array = torch.tensor(
-            [set_inference_key_value_memory] * micro_batch_size, device=torch.cuda.current_device()
+            [set_inference_key_value_memory] * micro_batch_size, device=get_current_device()
         )
-        len_array = torch.tensor([maxlen] * micro_batch_size, device=torch.cuda.current_device())
+        len_array = torch.tensor([maxlen] * micro_batch_size, device=get_current_device())
 
         batch = [tokens2use, attention_mask_repeat, positions2use, setkey_value_array, len_array]
         tensor_shape = [tokens2use.shape[1], micro_batch_size, self.model.cfg.hidden_size]
@@ -359,7 +360,7 @@ class GriffinModelTextGenerationStrategy(TextGenerationStrategy):
         """initialize the batch data before the inference steps."""
         # Move to GPU.
         tokenizer = self.model.tokenizer
-        tokens = context_tokens.contiguous().cuda()
+        tokens = context_tokens.contiguous().to(device=get_current_device())
         # Get the attention mask and postition ids.
         self.attention_mask, _, self.position_ids = get_ltor_masks_and_position_ids(
             tokens,
@@ -657,7 +658,7 @@ class NevaModelTextGenerationStrategy(TextGenerationStrategy):
         """initialize the batch data before the inference steps."""
         # Move to GPU.
         tokenizer = self.model.tokenizer
-        tokens = context_tokens.contiguous().cuda()
+        tokens = context_tokens.contiguous().to(device=get_current_device())
         # Get the attention mask and postition ids.
         self.attention_mask, _, self.position_ids = get_ltor_masks_and_position_ids(
             tokens,
@@ -736,9 +737,9 @@ class NevaModelTextGenerationStrategy(TextGenerationStrategy):
             attention_mask_repeat = torch.concat([self.attention_mask for _ in range(micro_batch_size)])
 
         setkey_value_array = torch.tensor(
-            [set_inference_key_value_memory] * micro_batch_size, device=torch.cuda.current_device()
+            [set_inference_key_value_memory] * micro_batch_size, device=get_current_device()
         )
-        len_array = torch.tensor([maxlen] * micro_batch_size, device=torch.cuda.current_device())
+        len_array = torch.tensor([maxlen] * micro_batch_size, device=get_current_device())
         batch = [tokens2use, attention_mask_repeat, positions2use, media, setkey_value_array, len_array]
         tensor_shape = [tokens2use.shape[1], micro_batch_size, self.model.cfg.hidden_size]
         return batch, tensor_shape
@@ -754,7 +755,7 @@ class PromptLearningModelTextGenerationStrategy(TextGenerationStrategy):
         """initialize the batch data before the inference steps."""
         # Move to GPU.
         tokenizer = self.model.tokenizer
-        tokens = context_tokens.contiguous().cuda()
+        tokens = context_tokens.contiguous().to(device=get_current_device())
         # Get the attention mask and postition ids.
         self.attention_mask, _, self.position_ids = get_ltor_masks_and_position_ids(
             tokens,
@@ -803,9 +804,9 @@ class PromptLearningModelTextGenerationStrategy(TextGenerationStrategy):
         if compute_attention_mask:
             attention_mask_repeat = torch.concat([self.attention_mask for _ in range(micro_batch_size)])
         setkey_value_array = torch.tensor(
-            [set_inference_key_value_memory] * micro_batch_size, device=torch.cuda.current_device()
+            [set_inference_key_value_memory] * micro_batch_size, device=get_current_device()
         )
-        len_array = torch.tensor([maxlen] * micro_batch_size, device=torch.cuda.current_device())
+        len_array = torch.tensor([maxlen] * micro_batch_size, device=get_current_device())
 
         batch = [tokens2use, attention_mask_repeat, positions2use, self.task_ids, setkey_value_array, len_array]
         tensor_shape = [tokens2use.shape[1], micro_batch_size, self.model.frozen_model.cfg.hidden_size]
@@ -928,8 +929,8 @@ class McoreRetroModelTextGenerationStrategy(TextGenerationStrategy):
 
         # Move to GPU.
         tokenizer = self.model.tokenizer
-        tokens = context_tokens.contiguous().cuda()
-        neighbors_tokens = neighbors_tokens.contiguous().cuda()
+        tokens = context_tokens.contiguous().to(device=get_current_device())
+        neighbors_tokens = neighbors_tokens.contiguous().to(device=get_current_device())
 
         # Get the attention mask and postition ids.
         self.attention_mask, _, self.position_ids = get_ltor_masks_and_position_ids(
@@ -1026,9 +1027,9 @@ class McoreRetroModelTextGenerationStrategy(TextGenerationStrategy):
             attention_mask_repeat = torch.concat([attention_mask2use for _ in range(micro_batch_size)])
 
         setkey_value_array = torch.tensor(
-            [set_inference_key_value_memory] * micro_batch_size, device=torch.cuda.current_device()
+            [set_inference_key_value_memory] * micro_batch_size, device=get_current_device()
         )
-        len_array = torch.tensor([maxlen] * micro_batch_size, device=torch.cuda.current_device())
+        len_array = torch.tensor([maxlen] * micro_batch_size, device=get_current_device())
 
         batch = [
             tokens2use,

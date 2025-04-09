@@ -24,7 +24,7 @@ from megatron.core.packed_seq_params import PackedSeqParams
 
 from nemo.collections.vlm.llava_next.model.utils import pack_image_features
 from nemo.collections.vlm.neva.data.multimodal_tokens import IMAGE_TOKEN_INDEX
-
+from nemo.utils import get_current_device
 
 def llava_next_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
     """
@@ -69,14 +69,14 @@ def llava_next_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
 
     packed_seq_params = _batch.get("packed_seq_params", None)
     _batch = {
-        key: val.cuda(non_blocking=True) if key in required_keys and val is not None else None
+        key: val.to(get_current_device()) if key in required_keys and val is not None else None
         for key, val in _batch.items()
     }
     if packed_seq_params is not None:
         for attr in ["cu_seqlens_q", "cu_seqlens_kv", "cu_seqlens_q_padded", "cu_seqlens_kv_padded"]:
             value = getattr(packed_seq_params, attr, None)
             if value is not None:
-                setattr(packed_seq_params, attr, value.cuda(non_blocking=True))
+                setattr(packed_seq_params, attr, value.to(get_current_device()))
     _batch["packed_seq_params"] = packed_seq_params
 
     if ps.get_context_parallel_world_size() > 1:

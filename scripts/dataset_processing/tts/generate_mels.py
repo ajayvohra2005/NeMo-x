@@ -26,6 +26,7 @@ import argparse
 import json
 from pathlib import Path
 
+from nemo.utils import get_current_device
 import numpy as np
 import soundfile as sf
 import torch
@@ -146,7 +147,7 @@ def main():
     else:
         raise ValueError(f"Unsupported suffix: {suffix}")
     if not args.cpu:
-        spec_model.cuda()
+        spec_model.to(device=get_current_device())
     device = spec_model.device
 
     use_beta_binomial_interpolator = spec_model.cfg.train_ds.dataset.get("use_beta_binomial_interpolator", False)

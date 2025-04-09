@@ -17,6 +17,7 @@ from contextlib import nullcontext
 from enum import Enum
 from typing import Callable, Dict, Optional, Type
 
+from nemo.utils import get_current_device_type
 import onnx
 import torch
 import torch.nn as nn
@@ -149,7 +150,7 @@ def verify_torchscript(model, output, input_examples, check_tolerance=0.01):
     for input_example in input_examples:
         input_list, input_dict = parse_input_example(input_example)
         # We disable autocast here to make sure exported TS will run under Triton or other C++ env
-        with torch.amp.autocast('cuda', enabled=False):
+        with torch.autocast(get_current_device_type(), enabled=False):
             output_example = model.forward(*input_list, **input_dict)
             ts_model = torch.jit.load(output)
             all_good = all_good and run_ts_and_compare(

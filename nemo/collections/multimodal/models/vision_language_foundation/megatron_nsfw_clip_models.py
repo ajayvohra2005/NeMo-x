@@ -36,7 +36,7 @@ from nemo.collections.nlp.modules.common.megatron.build_model import build_model
 from nemo.collections.nlp.modules.common.megatron.module import Float16Module, MegatronModule
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank, torch_dtype_from_precision
 from nemo.core.classes.common import PretrainedModelInfo
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device
 
 try:
     from megatron.core.num_microbatches_calculator import get_num_microbatches
@@ -218,8 +218,8 @@ class MegatronContentFilteringModel(MegatronBaseModel):
                 parallel_state.get_pipeline_model_parallel_world_size() == 1
                 or parallel_state.is_pipeline_first_stage()
             ):
-                images = images.cuda(non_blocking=True)
-                labels = labels.cuda(non_blocking=True)
+                images = images.to(get_current_device())
+                labels = labels.to(get_current_device())
             else:
                 images, labels = None, None
 
@@ -233,7 +233,7 @@ class MegatronContentFilteringModel(MegatronBaseModel):
         def forward_step(dataloader_iter, model):
             concepts = next(dataloader_iter)
             concepts = tokenize(concepts, self.tokenizer, self.cfg.text.max_position_embeddings)
-            return (model.text_encoder(concepts.cuda(non_blocking=True)), lambda x: (0.0, {"concepts": x}))
+            return (model.text_encoder(concepts.to(get_current_device())), lambda x: (0.0, {"concepts": x}))
 
         return forward_step
 

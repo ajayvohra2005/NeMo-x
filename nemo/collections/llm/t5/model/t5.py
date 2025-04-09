@@ -36,6 +36,7 @@ from nemo.lightning import get_vocab_size, io, teardown
 from nemo.lightning.megatron_parallel import MaskedTokenLossReduction
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
 from nemo.utils.import_utils import safe_import
+from nemo.utils import get_current_device
 
 _, HAVE_TE = safe_import("transformer_engine")
 
@@ -77,11 +78,11 @@ def t5_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
     # bring to device
     for key in _batch.keys():
         if key == "enc_dec_mask":  # because enc_dec_mask is a tuple
-            _batch[key] = (_batch[key][0].cuda(non_blocking=True), _batch[key][1].cuda(non_blocking=True))
+            _batch[key] = (_batch[key][0].to(get_current_device()), _batch[key][1].to(get_current_device()))
         elif key == "dec_mask":  # because dec_mask is a None since decoder uses AttnMaskType.causal
             continue
         else:
-            _batch[key] = _batch[key].cuda(non_blocking=True)
+            _batch[key] = _batch[key].to(get_current_device())
 
     # set up forward arguments for pipeline parallelism
     required_keys = set()

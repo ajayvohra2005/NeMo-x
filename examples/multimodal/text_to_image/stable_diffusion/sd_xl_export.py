@@ -38,7 +38,7 @@ def main(cfg):
     )
 
     model = megatron_diffusion_model.model
-    model.cuda().eval()
+    model.to(device=get_current_device()).eval()
 
     output_dir = cfg.infer.out_path
     os.makedirs(f"{output_dir}/onnx/unet_xl/", exist_ok=True)

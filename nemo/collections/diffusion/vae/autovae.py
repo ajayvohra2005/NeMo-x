@@ -16,6 +16,7 @@ import itertools
 import time
 from typing import Dict, List
 
+from nemo.utils import get_current_device
 import torch
 import torch.profiler
 from diffusers import AutoencoderKL
@@ -49,7 +50,7 @@ class VAEGenerator:
         The tensor is placed on the GPU in half-precision (float16).
         """
         random_tensor = torch.rand(1, 3, self.input_resolution, self.input_resolution)
-        random_tensor = random_tensor.to(dtype=torch.float16, device="cuda")
+        random_tensor = random_tensor.to(dtype=torch.float16, device=get_current_device())
         return random_tensor
 
     def _count_parameters(self, model: nn.Module = None):
@@ -228,7 +229,7 @@ class VAEGenerator:
             search_space_choices = self._generate_all_combinations(search_space)
 
         inp_tensor = self._generate_input()
-        inp_tensor = inp_tensor.to(dtype=torch.float16, device="cuda")
+        inp_tensor = inp_tensor.to(dtype=torch.float16, device=get_current_device())
         design_choices = []
 
         for choice in search_space_choices:
@@ -239,7 +240,7 @@ class VAEGenerator:
             print("-" * 20)
             print(choice)
             vae = AutoencoderKL.from_config(curt_design_json)
-            vae = vae.to(dtype=torch.float16, device="cuda")
+            vae = vae.to(dtype=torch.float16, device=get_current_device())
             total_params = self._count_parameters(vae)
             total_params /= 10**6
             # Reset peak memory statistics

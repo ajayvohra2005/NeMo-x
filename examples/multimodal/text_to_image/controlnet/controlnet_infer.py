@@ -133,7 +133,7 @@ def pipeline(model, cfg, rng=None, verbose=True):
             )
 
             control = get_control_input(control, batch_size, hint_image_size, control_image_preprocess).to(
-                torch.cuda.current_device(), dtype=autocast_dtype
+                get_current_device(), dtype=autocast_dtype
             )
 
             cond = {"c_concat": control, "c_crossattn": txt_cond}
@@ -145,7 +145,7 @@ def pipeline(model, cfg, rng=None, verbose=True):
             latent_shape = [batch_size, height // downsampling_factor, width // downsampling_factor]
             latents = torch.randn(
                 [batch_size, in_channels, height // downsampling_factor, width // downsampling_factor], generator=rng
-            ).to(torch.cuda.current_device())
+            ).to(get_current_device())
 
             tic = time.perf_counter()
             samples, intermediates = sampler.sample(
@@ -229,7 +229,7 @@ def main(cfg):
         model_provider=MegatronControlNet, cfg=cfg, model_cfg_modifier=model_cfg_modifier
     )
     model = megatron_diffusion_model.model
-    model.cuda().eval()
+    model.to(device=get_current_device()).eval()
 
     guess_mode = cfg.model.guess_mode
     model.contol_scales = (

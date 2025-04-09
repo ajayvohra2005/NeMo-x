@@ -16,6 +16,7 @@ import tempfile
 from functools import partial
 from typing import Dict, List, Optional, Tuple, Union
 
+from nemo.utils import get_current_device
 import open_clip
 import torch
 import torch.nn as nn
@@ -281,7 +282,7 @@ class ClassEmbedder(nn.Module):
 class TransformerEmbedder(AbstractEncoder):
     """Some transformer encoder layers"""
 
-    def __init__(self, n_embed, n_layer, vocab_size, max_seq_len=77, device="cuda"):
+    def __init__(self, n_embed, n_layer, vocab_size, max_seq_len=77, device=None):
         super().__init__()
         self.device = device
         self.transformer = TransformerWrapper(
@@ -300,7 +301,7 @@ class TransformerEmbedder(AbstractEncoder):
 class BERTTokenizer(AbstractEncoder):
     """Uses a pretrained BERT tokenizer by huggingface. Vocab size: 30522 (?)"""
 
-    def __init__(self, device="cuda", vq_interface=True, max_length=77):
+    def __init__(self, device=None, vq_interface=True, max_length=77):
         super().__init__()
         from transformers import BertTokenizerFast  # TODO: add to reuquirements
 
@@ -342,7 +343,7 @@ class BERTEmbedder(AbstractEncoder):
         n_layer,
         vocab_size=30522,
         max_seq_len=77,
-        device="cuda",
+        device=None,
         use_tokenizer=True,
         embedding_dropout=0.0,
     ):
@@ -443,7 +444,7 @@ class FrozenCLIPEmbedder(AbstractEmbModel):
     def __init__(
         self,
         version="openai/clip-vit-large-patch14",
-        device="cuda",
+        device=None,
         max_length=77,
         enable_lora_finetune=False,
         layer="last",
@@ -518,7 +519,7 @@ class FrozenOpenCLIPEmbedder(AbstractEncoder):
         self,
         arch="ViT-H-14",
         version="laion2b_s32b_b79k",
-        device="cuda",
+        device=None,
         max_length=77,
         freeze=True,
         layer="last",
@@ -590,7 +591,7 @@ class FrozenMegatronCLIPEmbedder(AbstractEmbModel):
     def __init__(
         self,
         restore_from_path,
-        device="cuda",
+        device=None,
         layer="last",
         freeze=True,
         cfg=None,
@@ -635,10 +636,7 @@ class FrozenMegatronCLIPEmbedder(AbstractEmbModel):
             param.requires_grad = False
 
     def load_config_and_state_from_nemo(self, nemo_path):
-        if torch.cuda.is_available():
-            map_location = torch.device('cuda')
-        else:
-            map_location = torch.device('cpu')
+        map_location = get_current_device()
         save_restore_connector = NLPSaveRestoreConnector()
         cwd = os.getcwd()
 
@@ -763,7 +761,7 @@ class FrozenOpenCLIPEmbedder2(AbstractEmbModel):
         self,
         arch="ViT-H-14",
         version="laion2b_s32b_b79k",
-        device="cuda",
+        device=None,
         max_length=77,
         freeze=True,
         layer="last",
@@ -870,7 +868,7 @@ class ConcatTimestepEmbedderND(AbstractEmbModel):
         emb = self.timestep(x)
         emb = rearrange(emb, "(b d) d2 -> b (d d2)", b=b, d=dims, d2=self.outdim)
         if self.device == 'cuda':
-            return emb.to(torch.cuda.current_device())
+            return emb.to(get_current_device())
         return emb
 
 
@@ -881,7 +879,7 @@ class PrecachedEmbModel(AbstractEmbModel):
 
     def forward(self, *args):
         if self.device == 'cuda':
-            return [arg.to(torch.cuda.current_device()) for arg in args]
+            return [arg.to(get_current_device()) for arg in args]
         return list(args)
 
 

@@ -16,6 +16,7 @@ import abc
 from contextlib import nullcontext
 from typing import ContextManager
 
+from nemo.utils import get_current_device_type
 import torch
 import torch.nn.functional as F
 
@@ -31,7 +32,7 @@ if TRITON_AVAILABLE:
 def force_float32_context() -> ContextManager:
     """Get context manager to force float32 precision in autocast mode."""
     if torch.is_autocast_enabled():
-        return torch.amp.autocast('cuda', dtype=torch.float32)
+        return torch.autocast(get_current_device_type(), dtype=torch.float32)
     return nullcontext()
 
 

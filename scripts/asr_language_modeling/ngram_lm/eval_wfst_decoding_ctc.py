@@ -96,7 +96,7 @@ class EvalWFSTNGramConfig:
     # Parameters for inference
     acoustic_batch_size: int = 16  # The batch size to calculate log probabilities
     beam_batch_size: int = 512  # The batch size to be used for beam search decoding
-    device: str = "cuda"  # The device to load the model onto to calculate log probabilities and run WFST decoding
+    device: torch.device = None  # The device to load the model onto to calculate log probabilities and run WFST decoding
     use_amp: bool = False  # Whether to use AMP if available to calculate log probabilities
 
     # WFST decoding hyperparameters
@@ -300,7 +300,7 @@ def main(cfg: EvalWFSTNGramConfig):
             )
     else:
 
-        with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
+        with torch.autocast(asr_model.device.type, enabled=cfg.use_amp):
             with torch.no_grad():
                 if isinstance(asr_model, EncDecHybridRNNTCTCModel):
                     asr_model.cur_decoder = 'ctc'

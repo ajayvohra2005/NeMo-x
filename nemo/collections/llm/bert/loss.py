@@ -14,6 +14,7 @@
 
 from typing import Dict, List, Literal, Tuple
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -21,7 +22,9 @@ from torch.distributed import all_gather as all_gather_no_backprop
 from torch.distributed.nn.functional import all_gather as all_gather_with_backprop
 
 from nemo.lightning.megatron_parallel import MaskedTokenLossReduction, MegatronLossReduction
+from nemo.utils import get_xla_model
 
+xm = get_xla_model()
 
 class BERTLossReduction(MegatronLossReduction):
     """Bert Loss Function.
@@ -89,11 +92,11 @@ class BERTLossReduction(MegatronLossReduction):
             loss_sum = (
                 torch.vstack(loss_sum_tensors_list).sum(dim=0)
                 if len(loss_sum_tensors_list) > 0
-                else torch.tensor([0.0, 0.0], device=torch.cuda.current_device())
+                else torch.tensor([0.0, 0.0], device=get_current_device())
             )
             return loss_sum
 
-        return torch.tensor(0.0, device=torch.cuda.current_device())
+        return torch.tensor(0.0, device=get_current_device())
 
 
 class HardNegativeRankingLoss(MegatronLossReduction):
@@ -172,11 +175,11 @@ class HardNegativeRankingLoss(MegatronLossReduction):
             loss_sum = (
                 torch.vstack(loss_sum_tensors_list).sum(dim=0)
                 if len(loss_sum_tensors_list) > 0
-                else torch.tensor([0.0, 0.0], device=torch.cuda.current_device())
+                else torch.tensor([0.0, 0.0], device=get_current_device())
             )
             return loss_sum
 
-        return torch.tensor(0.0, device=torch.cuda.current_device())
+        return torch.tensor(0.0, device=get_current_device())
 
 
 class BERTInBatchExclusiveHardNegativesRankingLoss(MegatronLossReduction):
@@ -291,11 +294,11 @@ class BERTInBatchExclusiveHardNegativesRankingLoss(MegatronLossReduction):
             loss_sum = (
                 torch.vstack(loss_sum_tensors_list).sum(dim=0)
                 if len(loss_sum_tensors_list) > 0
-                else torch.tensor([0.0, 0.0], device=torch.cuda.current_device())
+                else torch.tensor([0.0, 0.0], device=get_current_device())
             )
             return loss_sum
 
-        return torch.tensor(0.0, device=torch.cuda.current_device())
+        return torch.tensor(0.0, device=get_current_device())
 
 
 def masked_token_with_zero(tensor: Tensor, mask: Tensor):
@@ -328,7 +331,10 @@ def average_losses_across_data_parallel_group(losses):
     from megatron.core import parallel_state
 
     averaged_losses = torch.cat([loss.clone().detach().view(1) for loss in losses])
-    torch.distributed.all_reduce(averaged_losses, group=parallel_state.get_data_parallel_group())
+    if xm:
+        xm.all_reduce(xm.REDUCE_SUM, [averaged_losses], groups=parallel_state.get_data_parallel_groups(), pin_layout=False)
+    else:
+        torch.distributed.all_reduce(averaged_losses, group=parallel_state.get_data_parallel_group())
     averaged_losses = averaged_losses / torch.distributed.get_world_size(
         group=parallel_state.get_data_parallel_group()
     )

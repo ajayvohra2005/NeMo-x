@@ -17,6 +17,7 @@ import os
 from collections import defaultdict
 from typing import Dict, List, Optional, Union
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from lightning.pytorch import Trainer
@@ -374,7 +375,7 @@ class DialogueZeroShotIntentModel(TextClassificationModel):
 
         mode = self.training
         try:
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            device = get_current_device()
 
             # Switch model to evaluation mode
             self.eval()

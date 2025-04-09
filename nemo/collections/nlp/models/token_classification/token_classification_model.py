@@ -15,6 +15,7 @@
 import os
 from typing import List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import Trainer
 from omegaconf import DictConfig, OmegaConf
@@ -338,7 +339,7 @@ class TokenClassificationModel(NLPModel):
         all_preds = []
         mode = self.training
         try:
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            device = get_current_device()
             # Switch model to evaluation mode
             self.eval()
             self.to(device)

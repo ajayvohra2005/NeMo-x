@@ -19,7 +19,7 @@ import torch
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin, replace_prefix
 from nemo.collections.nlp.parts.peft_config import PEFT_CONFIG_MAP, PEFTConfig
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device
 
 
 class SpeechLLMAdapterMixin(NLPAdapterModelMixin):
@@ -47,10 +47,7 @@ class SpeechLLMAdapterMixin(NLPAdapterModelMixin):
 
         # Determine device
         if map_location is None:
-            if torch.cuda.is_available():
-                map_location = 'cuda'
-            else:
-                map_location = 'cpu'
+            map_location = get_current_device()
 
         if filepath.endswith('.nemo'):
             conf, state_dict = self._get_config_and_state_dict_from_nemo(filepath, map_location)

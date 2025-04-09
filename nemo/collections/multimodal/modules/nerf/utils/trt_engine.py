@@ -80,7 +80,7 @@ class Engine:
     def activate(self):
         self.context = self.engine.create_execution_context()
 
-    def allocate_buffers(self, shape_dict=None, device="cuda"):
+    def allocate_buffers(self, shape_dict=None, device=None):
         for idx in range(trt_util.get_bindings_per_profile(self.engine)):
             binding = self.engine[idx]
             if shape_dict and binding in shape_dict:

@@ -18,6 +18,7 @@ import math
 from functools import partial
 
 import einops
+from nemo.utils import get_current_device
 import torch
 import torch.nn.functional as F
 
@@ -225,7 +226,7 @@ class VitBackbone(MegatronModule):
             if self.class_token:
                 self.cls_token = torch.nn.Parameter(torch.randn(1, self.class_token_length, self.hidden_size))
                 torch.nn.init.zeros_(self.cls_token)
-            self.position_ids = torch.arange(self.seq_length).expand(1, -1).cuda()
+            self.position_ids = torch.arange(self.seq_length).expand(1, -1).to(device=get_current_device())
 
             # Convolution layer
             self.conv1 = torch.nn.Conv2d(

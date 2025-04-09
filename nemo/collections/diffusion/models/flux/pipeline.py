@@ -15,6 +15,7 @@
 import os
 from typing import List, Optional, Union
 
+from nemo.utils import get_current_device_type
 import numpy as np
 import torch
 from PIL import Image
@@ -607,7 +608,7 @@ class FluxInferencePipeline(nn.Module):
                     guidance = torch.tensor([guidance_scale], device=device).expand(latents.shape[1])
                 else:
                     guidance = None
-                with torch.autocast(device_type='cuda', dtype=latents.dtype):
+                with torch.autocast(device_type=get_current_device_type(), dtype=latents.dtype):
                     pred = self.transformer(
                         img=latents,
                         txt=prompt_embeds,
@@ -628,7 +629,7 @@ class FluxInferencePipeline(nn.Module):
                 latents = self._unpack_latents(latents.transpose(0, 1), height, width, self.vae_scale_factor)
                 if device == 'cuda' and device != self.device:
                     self.vae.to(device)
-                with torch.autocast(device_type='cuda', dtype=latents.dtype):
+                with torch.autocast(device_type=get_current_device_type(), dtype=latents.dtype):
                     image = self.vae.decode(latents)
                 if offload:
                     self.vae.to('cpu')
@@ -954,7 +955,7 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
 
                 conditioning_scale = controlnet_keep[i] * controlnet_conditioning_scale
 
-                with torch.autocast(device_type='cuda', dtype=latents.dtype):
+                with torch.autocast(device_type=get_current_device_type(), dtype=latents.dtype):
                     controlnet_double_block_samples, controlnet_single_block_samples = self.flux_controlnet(
                         img=latents,
                         controlnet_cond=control_image,
@@ -988,7 +989,7 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
                 latents = self._unpack_latents(latents.transpose(0, 1), height, width, self.vae_scale_factor)
                 if device == 'cuda' and device != self.device:
                     self.vae.to(device)
-                with torch.autocast(device_type='cuda', dtype=latents.dtype):
+                with torch.autocast(device_type=get_current_device_type(), dtype=latents.dtype):
                     image = self.vae.decode(latents)
                 if offload:
                     self.vae.to('cpu')

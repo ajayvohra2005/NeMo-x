@@ -19,6 +19,7 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Union
 
+from nemo.utils import get_current_device
 import torch
 
 from nemo.collections.asr.parts.k2.classes import GraphIntersectDenseConfig
@@ -629,7 +630,7 @@ class WfstCTCInfer(AbstractBeamCTCInfer):
         open_vocabulary_decoding: bool = False,
         beam_width: float = 10.0,
         lm_weight: float = 1.0,
-        device: str = "cuda",
+        device: torch.device = None,
         arpa_lm_path: str = None,
         wfst_lm_path: str = None,
         riva_decoding_cfg: Optional['RivaDecoderConfig'] = None,
@@ -665,7 +666,7 @@ class WfstCTCInfer(AbstractBeamCTCInfer):
         self._tokenword_disambig_id = -1
         self.beam_width = beam_width
         self.lm_weight = lm_weight
-        self.device = device
+        self.device = device if device else get_current_device()
 
         # Default beam search args
         self.arpa_lm_path = arpa_lm_path
@@ -926,7 +927,7 @@ class WfstCTCInferConfig:
     open_vocabulary_decoding: bool = False
     beam_width: float = 10.0
     lm_weight: float = 1.0
-    device: str = "cuda"
+    device: torch.device = None
     arpa_lm_path: Optional[str] = None
     wfst_lm_path: Optional[str] = None
     riva_decoding_cfg: Optional['RivaDecoderConfig'] = field(default_factory=lambda: RivaDecoderConfig())

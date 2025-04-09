@@ -16,6 +16,7 @@
 
 """Transformer."""
 
+from nemo.utils import get_current_device_type
 import torch
 
 from nemo.collections.nlp.modules.common.megatron.layer_type import LayerType
@@ -383,7 +384,7 @@ class ParallelVisionTransformerLayer(ParallelVisionTransformerLayer_):
             kwargs.pop(key)
         if self.dtype == torch.float32:
             return super().forward(**kwargs)
-        with torch.autocast(device_type="cuda", dtype=self.dtype):
+        with torch.autocast(device_type=get_current_device_type(), dtype=self.dtype):
             return super().forward(**kwargs)
 
 

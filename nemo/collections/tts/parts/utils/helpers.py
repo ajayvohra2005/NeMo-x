@@ -839,7 +839,7 @@ def to_device_recursive(e, device: torch.device):
     Returns a new structure with tensors moved to target device, leaving other data intact.
 
     The intended use is to move collections of tensors to a device while:
-        - avoiding calling specific movers like .cpu() or .cuda()
+        - avoiding calling specific movers like .cpu() or .to(device=get_current_device())
         - avoiding stuff like .to(torch.device("cuda:{some_variable}"))
     """
     if isinstance(e, (list, tuple)):

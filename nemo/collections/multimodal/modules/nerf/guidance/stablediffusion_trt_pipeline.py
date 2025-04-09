@@ -15,6 +15,7 @@ import logging
 import os
 import tempfile
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn as nn
@@ -44,7 +45,7 @@ class LatentDiffusionWrapper(Txt2ImgGuidanceBase):
 
         self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
         self.max_length = config.clip.max_length
-        self.rng = torch.Generator(device=torch.cuda.current_device(),)
+        self.rng = torch.Generator(device=get_current_device(),)
 
         self.set_beta_schedule()
 
@@ -72,7 +73,7 @@ class LatentDiffusionWrapper(Txt2ImgGuidanceBase):
         betas = torch.tensor(betas)
         alphas = torch.tensor(alphas)
         alphas_cumprod = torch.tensor(alphas_cumprod)
-        to_torch = lambda x: x.clone().detach().to(torch.float32).to(torch.cuda.current_device())
+        to_torch = lambda x: x.clone().detach().to(torch.float32).to(get_current_device())
         self.register_buffer('alphas_cumprod', to_torch(alphas_cumprod))
         self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod.cpu())))
         self.register_buffer('sqrt_one_minus_alphas_cumprod', to_torch(np.sqrt(1.0 - alphas_cumprod.cpu())))
@@ -102,7 +103,7 @@ class LatentDiffusionWrapper(Txt2ImgGuidanceBase):
             padding="max_length",
             return_tensors="pt",
         )
-        tokens = batch_encoding["input_ids"].to("cuda", non_blocking=True)
+        tokens = batch_encoding["input_ids"].to(get_current_device(), non_blocking=True)
         z = self.text_encoder.infer({"tokens": device_view(tokens.type(torch.int32))})['logits'].clone()
         seq_len = (z.shape[1] + 8 - 1) // 8 * 8
         z = torch.nn.functional.pad(z, (0, 0, 0, seq_len - z.shape[1]), value=0.0)
@@ -134,7 +135,7 @@ class LatentDiffusionWrapper(Txt2ImgGuidanceBase):
             return out
 
     def load_vae_from_checkpoint(self, checkpoint):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device(get_current_device())
         cfg, state_dict = self.load_config_and_state_from_nemo(checkpoint)
 
         if cfg.get('unet_config') and cfg.get('unet_config').get('from_pretrained'):
@@ -153,10 +154,7 @@ class LatentDiffusionWrapper(Txt2ImgGuidanceBase):
         return model.first_stage_model.encode
 
     def load_config_and_state_from_nemo(self, nemo_path):
-        if torch.cuda.is_available():
-            map_location = torch.device('cuda')
-        else:
-            map_location = torch.device('cpu')
+        map_location = get_current_device()
         save_restore_connector = NLPSaveRestoreConnector()
         cwd = os.getcwd()
 

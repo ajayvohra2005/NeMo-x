@@ -19,7 +19,7 @@ import tempfile
 import torch
 import torch.distributed as dist
 
-from nemo.utils import logging
+from nemo.utils import logging, get_distributed_backend, get_distributed_init_method
 from nemo.utils.get_rank import is_global_rank_zero
 
 try:
@@ -38,23 +38,19 @@ def initialize_distributed(args, backend='nccl'):
     # Get rank and world size.
     rank = int(os.getenv('RANK', '0'))
     world_size = int(os.getenv("WORLD_SIZE", '1'))
+    local_rank = int(os.getenv("LOCAL_RANK", 0))
 
     logging.info(
         f'Initializing torch.distributed with local_rank: {local_rank}, rank: {rank}, world_size: {world_size}'
     )
 
     # Set the device id.
-    device = rank % torch.cuda.device_count()
-    if local_rank is not None:
-        device = local_rank
-    torch.cuda.set_device(device)
-
-    # Call the init process.
-    init_method = 'tcp://'
-    master_ip = os.getenv('MASTER_ADDR', 'localhost')
-    master_port = os.getenv('MASTER_PORT', '6000')
-    init_method += master_ip + ':' + master_port
-    torch.distributed.init_process_group(backend=backend, world_size=world_size, rank=rank, init_method=init_method)
+    init_method = get_distributed_init_method()
+    backend = get_distributed_backend()  
+ 
+    torch.distributed.init_process_group(backend=backend, 
+                                        world_size=world_size, 
+                                        rank=rank, init_method=init_method)
     return local_rank, rank, world_size
 
 
@@ -91,7 +87,7 @@ def gather_objects(partial_results_list, main_rank=None):
         return partial_results_list
 
     gathered_results = [None for _ in range(world_size)]
-    torch.distributed.all_gather_object(gathered_results, partial_results_list)
+    torch.distributed.all_gather_object(gathered_results, partial_results_list, group=parallel_state.get_default_process_group())
 
     # return None to non-main ranks
     if main_rank is not None:

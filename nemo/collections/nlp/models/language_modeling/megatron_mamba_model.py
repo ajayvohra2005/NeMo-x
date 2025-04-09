@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig
@@ -83,7 +84,7 @@ class MegatronMambaModel(MegatronGPTModel):
 
     def on_validation_epoch_end(self):
 
-        averaged_loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+        averaged_loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())
         return averaged_loss
 
     def _reset_activation_checkpointing_args(self):

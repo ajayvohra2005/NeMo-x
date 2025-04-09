@@ -15,6 +15,7 @@
 import random
 from pathlib import Path
 
+from nemo.utils import get_current_device
 import pytest
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -78,7 +79,7 @@ class TestNGramGPULanguageModel:
     def test_triton_vs_pytorch_random_states(self, n_gpu_lm: NGramGPULanguageModel, batch_size=2, num_iterations=100):
         """Randomly initializes the states and compares the scores from Triton and PyTorch implementations."""
         torch.manual_seed(777)
-        device = torch.device("cuda")
+        device = get_current_device()
         n_gpu_lm = n_gpu_lm.to(device)
         for _ in tqdm(range(num_iterations)):
             start_state = random.randint(0, n_gpu_lm.num_states - 1)

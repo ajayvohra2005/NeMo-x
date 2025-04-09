@@ -59,7 +59,7 @@ class NVDiffRastRenderer(BaseRenderer):
         self.register_parameter('deform', deform)
 
         edges = torch.tensor(
-            [0, 1, 0, 2, 0, 3, 1, 2, 1, 3, 2, 3], dtype=torch.long, device="cuda"
+            [0, 1, 0, 2, 0, 3, 1, 2, 1, 3, 2, 3], dtype=torch.long, device=None
         )  # six edges for each tetrahedron.
         all_edges = self.indices[:, edges].reshape(-1, 2)  # [M * 6, 2]
         all_edges_sorted = torch.sort(all_edges, dim=1)[0]

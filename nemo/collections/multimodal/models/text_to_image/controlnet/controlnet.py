@@ -15,6 +15,7 @@
 from typing import Any
 
 import einops
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
@@ -43,7 +44,7 @@ from nemo.collections.multimodal.modules.stable_diffusion.diffusionmodules.util 
 from nemo.collections.multimodal.parts.stable_diffusion.utils import exists, log_txt_as_img
 from nemo.collections.nlp.models.language_modeling.megatron_base_model import MegatronBaseModel
 from nemo.collections.nlp.modules.common.megatron.module import Float16Module
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 try:
     from megatron.core.num_microbatches_calculator import get_num_microbatches
@@ -69,6 +70,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     TORCHVISION_AVAILABLE = False
 
+xm = get_xla_model()
 
 class ControlledUnetModel(UNetModel):
     '''
@@ -133,7 +135,7 @@ class ControlLDM(LatentDiffusion):
         control = batch[self.control_key]
         if bs is not None:
             control = control[:bs]
-        control = control.to(torch.cuda.current_device())
+        control = control.to(get_current_device())
         if self.channels_last:
             control = control.permute(0, 3, 1, 2).to(non_blocking=True)
         else:
@@ -188,8 +190,8 @@ class ControlLDM(LatentDiffusion):
 
         log = dict()
         batch = next(batch)
-        batch['images'] = batch['images'].to(torch.cuda.current_device())
-        batch['hint'] = batch['hint'].to(torch.cuda.current_device())
+        batch['images'] = batch['images'].to(get_current_device())
+        batch['hint'] = batch['hint'].to(get_current_device())
         N = batch['images'].shape[0]
         z, c = self.get_input(batch, self.first_stage_key, bs=N)
         c_cat, c = c["c_concat"][:N], c["c_crossattn"][:N]
@@ -268,15 +270,15 @@ class ControlLDM(LatentDiffusion):
 
     def low_vram_shift(self, is_diffusing):
         if is_diffusing:
-            self.model = self.model.cuda()
-            self.control_model = self.control_model.cuda()
+            self.model = self.model.to(device=get_current_device())
+            self.control_model = self.control_model.to(device=get_current_device())
             self.first_stage_model = self.first_stage_model.cpu()
             self.cond_stage_model = self.cond_stage_model.cpu()
         else:
             self.model = self.model.cpu()
             self.control_model = self.control_model.cpu()
-            self.first_stage_model = self.first_stage_model.cuda()
-            self.cond_stage_model = self.cond_stage_model.cuda()
+            self.first_stage_model = self.first_stage_model.to(device=get_current_device())
+            self.cond_stage_model = self.cond_stage_model.to(device=get_current_device())
 
 
 class ControlNet(nn.Module):
@@ -679,7 +681,7 @@ class MegatronControlNet(MegatronBaseModel):
     def on_train_batch_start(self, batch, batch_idx, dataloader_idx=0):
         if self.cfg.scale_by_std and self.current_epoch == 0 and self.global_step == 0 and batch_idx == 0:
             assert self.cfg.scale_factor == 1.0, 'rather not use custom rescaling and std-rescaling simultaneously'
-            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].cuda(non_blocking=True)
+            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].to(get_current_device())
             self.model.on_train_batch_start(batch, batch_idx)
 
     def fwd_bwd_step(self, dataloader_iter, forward_only):
@@ -729,7 +731,7 @@ class MegatronControlNet(MegatronBaseModel):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0, device=torch.cuda.current_device())
+                loss_mean = torch.tensor(0.0, device=get_current_device())
 
         return loss_mean, loss_dict
 
@@ -814,10 +816,10 @@ class MegatronControlNet(MegatronBaseModel):
             Global batch is a list of micro batches.
             """
             # noise_map, condition
-            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].cuda(non_blocking=True)
+            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].to(get_current_device())
             if isinstance(batch[self.cfg.cond_stage_key], torch.Tensor):
                 # in the case of precached text embeddings, cond_stage is also a tensor
-                batch[self.cfg.cond_stage_key] = batch[self.cfg.cond_stage_key].cuda(non_blocking=True)
+                batch[self.cfg.cond_stage_key] = batch[self.cfg.cond_stage_key].to(get_current_device())
 
             # SD has more dedicated structure for encoding, so we enable autocasting here as well
             with torch.cuda.amp.autocast(
@@ -837,7 +839,7 @@ class MegatronControlNet(MegatronBaseModel):
         def fwd_output_and_loss_func(dataloader_iter, model):
             batch, _, _ = next(dataloader_iter)
             batch = process_batch(batch)
-            batch = [x.cuda(non_blocking=True) for x in batch]
+            batch = [x.to(get_current_device()) for x in batch]
             if len(self.conditioning_keys) == 0:
                 x, c = batch
             else:
@@ -911,9 +913,14 @@ class MegatronControlNet(MegatronBaseModel):
             num_parameters_on_device = sum([p.nelement() for p in self.model.parameters()])
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda(non_blocking=True)
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
 
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                        groups=parallel_state.get_model_parallel_groups(), 
+                        pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

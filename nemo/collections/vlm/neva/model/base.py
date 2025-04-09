@@ -36,7 +36,7 @@ from nemo.lightning import io
 from nemo.lightning.io.pl import ckpt_to_weights_subdir
 from nemo.lightning.megatron_parallel import MaskedTokenLossReductionWithLossMask
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device
 
 MODEL_CONFIG_ATTR = [
     'num_layers',
@@ -123,7 +123,7 @@ def neva_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
     packed_seq_params = _batch.get("packed_seq_params", None)
     _batch = {
         key: (
-            (val if isinstance(val, list) else val.cuda(non_blocking=True))
+            (val if isinstance(val, list) else val.to(get_current_device()))
             if key in required_keys and val is not None
             else None
         )
@@ -133,7 +133,7 @@ def neva_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
         for attr in ["cu_seqlens_q", "cu_seqlens_kv", "cu_seqlens_q_padded", "cu_seqlens_kv_padded"]:
             value = getattr(packed_seq_params, attr, None)
             if value is not None:
-                setattr(packed_seq_params, attr, value.cuda(non_blocking=True))
+                setattr(packed_seq_params, attr, value.to(get_current_device()))
     _batch["packed_seq_params"] = packed_seq_params
     if ps.get_context_parallel_world_size() > 1:
         num_valid_tokens_in_ub = None

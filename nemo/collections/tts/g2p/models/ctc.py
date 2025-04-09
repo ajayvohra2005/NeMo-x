@@ -17,6 +17,7 @@ import string
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from hydra.utils import instantiate
 from lightning.pytorch import Trainer
@@ -341,7 +342,7 @@ class CTCG2PModel(G2PModel, ASRBPEMixin, Exportable):
         all_preds = []
         mode = self.training
         try:
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            device = get_current_device()
             # Switch model to evaluation mode
             self.eval()
             self.to(device)

@@ -16,6 +16,8 @@
 import json
 import os
 
+from nemo.utils import get_current_device
+
 try:
     import decord
 except Exception:
@@ -64,7 +66,7 @@ class MultimodalModelRunner:
         torch.cuda.set_device(device_id)
         self.device = "cuda:%d" % (device_id)
 
-        self.stream = torch.cuda.Stream(torch.cuda.current_device())
+        self.stream = torch.cuda.Stream(get_current_device())
         torch.cuda.set_stream(self.stream)
 
         # parse model type from visual engine config
@@ -590,22 +592,22 @@ class MultimodalModelRunner:
             task_vocab_size = torch.tensor(
                 [prompt_table.shape[1]],
                 dtype=torch.int32,
-            ).cuda()
+            ).to(device=get_current_device())
             prompt_table = prompt_table.view((prompt_table.shape[0] * prompt_table.shape[1], prompt_table.shape[2]))
 
             assert prompt_table.shape[1] == hidden_size, "Prompt table dimensions do not match hidden size"
 
-            prompt_table = prompt_table.cuda().to(
+            prompt_table = prompt_table.to(device=get_current_device()).to(
                 dtype=tensorrt_llm._utils.str_dtype_to_torch(self.model_config.dtype)
             )
         else:
-            prompt_table = torch.empty([1, hidden_size]).cuda()
-            task_vocab_size = torch.zeros([1]).cuda()
+            prompt_table = torch.empty([1, hidden_size]).to(device=get_current_device())
+            task_vocab_size = torch.zeros([1]).to(device=get_current_device())
 
         if self.model_config.remove_input_padding:
-            tasks = torch.zeros([torch.sum(input_lengths)], dtype=torch.int32).cuda()
+            tasks = torch.zeros([torch.sum(input_lengths)], dtype=torch.int32).to(device=get_current_device())
         else:
-            tasks = torch.zeros(input_ids.shape, dtype=torch.int32).cuda()
+            tasks = torch.zeros(input_ids.shape, dtype=torch.int32).to(device=get_current_device())
 
         return [prompt_table, tasks, task_vocab_size]
 

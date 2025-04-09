@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import List
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -244,7 +245,7 @@ def extract_features(args):
     results = []
     amp_dtype = torch.float16 if args.amp_dtype == "float16" else torch.bfloat16
     logging.info(f"Extracting features using AMP: {args.use_amp}, dtype: {amp_dtype}")
-    with torch.amp.autocast('cuda' if torch.cuda.is_available() else 'cpu', dtype=amp_dtype, enabled=args.use_amp):
+    with torch.autocast(get_current_device(), dtype=amp_dtype, enabled=args.use_amp):
         with torch.inference_mode():
             for batch in tqdm(dataloader, desc="Extracting features"):
                 batch = move_data_to_device(batch, device)

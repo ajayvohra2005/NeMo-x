@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from nemo.utils import get_current_device
 import numpy as np
 import tensorrt as trt
 import tensorrt_llm
@@ -478,7 +479,7 @@ def load_distributed(engine_dir, model_parallel_rank, gpus_per_node):
     # is not true for the megatron mapping of TP->DP->PP.
     # So we manipulate TRTLLM to emulate a TP->PP single node setup
     # TRTLLM is expected to fix this in future releases
-    offset = (torch.cuda.current_device() - model_parallel_rank % gpus_per_node + gpus_per_node) % gpus_per_node
+    offset = (get_current_device() - model_parallel_rank % gpus_per_node + gpus_per_node) % gpus_per_node
     device_ids = [i for i in range(gpus_per_node)]
     for _ in range(offset):
         device_ids.append(device_ids.pop(0))
@@ -487,7 +488,7 @@ def load_distributed(engine_dir, model_parallel_rank, gpus_per_node):
     # Copied from worldConfig.h (getDevice())
     # mpi_device = mpi_rank % gpus_per_node
     # TODO: Consider re-enabling
-    # assert torch.cuda.current_device() == mpi_device
+    # assert get_current_device() == mpi_device
 
     # TODO: check if API exists (copied from gptJsonConfig.cpp)
     # https://github.com/terrykong/TensorRT-LLM/blob/05316d3313360012536ace46c781518f5afae75e/cpp/tensorrt_llm/runtime/gptJsonConfig.cpp#L478
@@ -529,7 +530,7 @@ def load_distributed(engine_dir, model_parallel_rank, gpus_per_node):
         # We want the engine to have the mp_rank,
         # but the python runtime to not resassign the device of the current process
         # So we will set it to the current device
-        rank=torch.cuda.current_device(),
+        rank=get_current_device(),
         **default_kwargs,
     )
 
@@ -713,18 +714,18 @@ def generate(
     if stop_words_list is not None:
         stop_words_arrays = to_word_list_format(stop_words_list, tokenizer)
         stop_words_list_tensors = (
-            torch.Tensor(stop_words_arrays).to(torch.int32).to(torch.cuda.current_device()).contiguous()
+            torch.Tensor(stop_words_arrays).to(torch.int32).to(get_current_device()).contiguous()
         )
 
     bad_words_list_tensors = None
     if bad_words_list is not None:
         bad_words_arrays = to_word_list_format(bad_words_list, tokenizer)
         bad_words_list_tensors = (
-            torch.Tensor(bad_words_arrays).to(torch.int32).to(torch.cuda.current_device()).contiguous()
+            torch.Tensor(bad_words_arrays).to(torch.int32).to(get_current_device()).contiguous()
         )
 
     if no_repeat_ngram_size is not None:
-        no_repeat_ngram_size = torch.IntTensor(no_repeat_ngram_size).to(torch.cuda.current_device())
+        no_repeat_ngram_size = torch.IntTensor(no_repeat_ngram_size).to(get_current_device())
 
     outputs = forward(
         input_tensors=input_tensors,
@@ -797,7 +798,7 @@ def generate_streaming(
         stop_words_list_tensors = [tokenizer.encode(t) for t in stop_words_list]
         stop_words_list_tensors = torch.IntTensor(stop_words_list_tensors)
         stop_words_list_tensors = (
-            stop_words_list_tensors.unsqueeze(0).repeat(batch_size, 1, 1).to(torch.cuda.current_device())
+            stop_words_list_tensors.unsqueeze(0).repeat(batch_size, 1, 1).to(get_current_device())
         )
 
     bad_words_list_tensors = None
@@ -805,11 +806,11 @@ def generate_streaming(
         bad_words_list_tensors = [tokenizer.encode(t) for t in bad_words_list]
         bad_words_list_tensors = torch.IntTensor(bad_words_list_tensors)
         bad_words_list_tensors = (
-            bad_words_list_tensors.unsqueeze(0).repeat(batch_size, 1, 1).to(torch.cuda.current_device())
+            bad_words_list_tensors.unsqueeze(0).repeat(batch_size, 1, 1).to(get_current_device())
         )
 
     if no_repeat_ngram_size is not None:
-        no_repeat_ngram_size = torch.IntTensor(no_repeat_ngram_size).to(torch.cuda.current_device())
+        no_repeat_ngram_size = torch.IntTensor(no_repeat_ngram_size).to(get_current_device())
 
     outputs = forward(
         input_tensors=input_tensors,

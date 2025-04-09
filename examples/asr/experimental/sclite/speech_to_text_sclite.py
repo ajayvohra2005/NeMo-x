@@ -109,7 +109,7 @@ def main():
         asr_model = ASRModel.from_pretrained(model_name=args.asr_model, map_location='cpu')
 
     if can_gpu:
-        asr_model = asr_model.cuda()
+        asr_model = asr_model.to(device=get_current_device())
 
     asr_model.eval()
 

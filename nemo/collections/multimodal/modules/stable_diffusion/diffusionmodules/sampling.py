@@ -18,6 +18,7 @@
 
 from typing import Dict, Union
 
+from nemo.utils import get_current_device
 import torch
 from omegaconf import ListConfig, OmegaConf
 from tqdm import tqdm
@@ -43,7 +44,7 @@ class BaseDiffusionSampler:
         num_steps: Union[int, None] = None,
         guider_config: Union[Dict, ListConfig, OmegaConf, None] = None,
         verbose: bool = False,
-        device: str = "cuda",
+        device: torch.device = None,
     ):
         self.num_steps = num_steps
         self.discretization = instantiate_from_config(discretization_config)
@@ -54,7 +55,7 @@ class BaseDiffusionSampler:
             )
         )
         self.verbose = verbose
-        self.device = device
+        self.device = device if device else get_current_device()
 
     def prepare_sampling_loop(self, x, cond, uc=None, num_steps=None):
         sigmas = self.discretization(self.num_steps if num_steps is None else num_steps, device=self.device)

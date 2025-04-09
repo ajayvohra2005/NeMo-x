@@ -221,7 +221,7 @@ def main() -> None:
         )
     if args.device is None:
         if torch.cuda.is_available():
-            model = model.cuda()
+            model = model.to(device=get_current_device())
         else:
             model = model.cpu()
     else:

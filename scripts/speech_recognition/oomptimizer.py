@@ -21,6 +21,7 @@ from typing import Iterable, Literal
 
 import click
 import lightning.pytorch as pl
+from nemo.utils import get_current_device, get_current_device_type
 import torch
 from lhotse import compute_num_samples
 from omegaconf import OmegaConf
@@ -110,12 +111,12 @@ class ProfilingBatchGenerator:
         schema: dict,
         start_batch_size: int = 32,
         rel_gap_thresh: float = 0.05,
-        device: str = "cuda",
+        device: torch.device = None,
     ):
         self.schema = schema
         self.start_batch_size = start_batch_size
         self.rel_gap_thresh = rel_gap_thresh
-        self.device = device
+        self.device = device if device else get_current_device()
         self.reset()
 
     def __call__(self, input_seq_length: int, output_seq_length: int):
@@ -457,7 +458,7 @@ def oomptimizer(
 
     # Iterate buckets from the largest to the smallest sequences. This usually ends up creating
     # a tiny bit smaller batches, likely due to worse memory fragmentation.
-    with torch.autocast("cuda", getattr(torch, dtype)):
+    with torch.autocast(get_current_device_type(), getattr(torch, dtype)):
         for bucket, (seq_len_in, seq_len_out) in reversed(list(zip(buckets, max_seq_lens))):
             click.echo(f"The current sequence lengths are: input={seq_len_in} output={seq_len_out}.")
             gen.reset()

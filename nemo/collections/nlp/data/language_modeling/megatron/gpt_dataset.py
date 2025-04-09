@@ -29,7 +29,7 @@ from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset impo
 from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import deallocate_indexed_dataset_memory
 from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import make_dataset as make_indexed_dataset
 from nemo.core import Dataset
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -40,6 +40,7 @@ except (ImportError, ModuleNotFoundError):
 
     HAVE_MEGATRON_CORE = False
 
+xm = get_xla_model()
 
 def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length, seed, skip_warmup, tokenizer, name):
     def _build_dataset(current_data_prefix, current_num_samples):
@@ -692,8 +693,16 @@ def _build_index_mappings(
 
     torch.distributed.barrier()
     counts = torch.cuda.LongTensor([1])
-    torch.distributed.all_reduce(counts, group=parallel_state.get_data_parallel_group(with_context_parallel=True))
-    torch.distributed.all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
+    if xm:
+        xm.all_reduce(xm.REDUCE_SUM, [counts], 
+                    groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 
+                    pin_layout=False)
+        xm.all_reduce(xm.REDUCE_SUM, [counts], 
+                    groups=parallel_state.get_pipeline_model_parallel_groups(), 
+                    pin_layout=False)
+    else:
+        torch.distributed.all_reduce(counts, group=parallel_state.get_data_parallel_group(with_context_parallel=True))
+        torch.distributed.all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
     assert counts[0].item() == (
         torch.distributed.get_world_size()
         // torch.distributed.get_world_size(group=parallel_state.get_tensor_model_parallel_group())

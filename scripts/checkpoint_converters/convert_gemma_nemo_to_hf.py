@@ -16,6 +16,7 @@ import os
 from argparse import ArgumentParser
 from collections import OrderedDict
 
+from nemo.utils import get_current_device
 import torch
 from omegaconf import open_dict
 from pytorch_lightning import Trainer
@@ -116,11 +117,11 @@ def verify_forward(model_path, tokenizer_path, model_string):
     tokenizer = GemmaTokenizer.from_pretrained(tokenizer_path, local_files_only=True)
     tokenizer.pad_token = tokenizer.eos_token
     batch_dict = tokenizer(input_texts, max_length=512, padding=True, truncation=True, return_tensors="pt")
-    batch_dict_cuda = {k: v.cuda() for k, v in batch_dict.items()}
+    batch_dict_cuda = {k: v.to(device=get_current_device()) for k, v in batch_dict.items()}
 
     if model_string == "hf":
         model = AutoModelForCausalLM.from_pretrained(model_path, local_files_only=True)
-        model = model.cuda().eval()
+        model = model.to(device=get_current_device()).eval()
         outputs = model(**batch_dict_cuda, output_hidden_states=True)
         next_token = outputs.logits[0, -1].argmax()
     elif model_string == 'nemo':
@@ -143,7 +144,7 @@ def verify_forward(model_path, tokenizer_path, model_string):
             attn_mask, _, pos_ids = attn_mask_and_pos_ids
 
             outputs = model(
-                tokens=tokens, text_position_ids=pos_ids.cuda(), attention_mask=attn_mask.cuda(), labels=None
+                tokens=tokens, text_position_ids=pos_ids.to(device=get_current_device()), attention_mask=attn_mask.to(device=get_current_device()), labels=None
             )
         next_token = outputs.squeeze()[-1].argmax()
     else:

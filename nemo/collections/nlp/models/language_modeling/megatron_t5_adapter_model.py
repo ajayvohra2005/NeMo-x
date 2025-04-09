@@ -20,6 +20,7 @@
 import itertools
 from typing import Any
 
+from nemo.utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig
@@ -43,7 +44,7 @@ from nemo.collections.nlp.modules.common.megatron.adapters.parallel_adapters imp
 )
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.mixins import adapter_mixins
-from nemo.utils import logging, model_utils
+from nemo.utils import logging, model_utils, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -53,6 +54,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     HAVE_MEGATRON_CORE = False
 
+xm = get_xla_model()
 
 class MegatronT5BaseAdapterModel(MegatronT5PromptLearningModel):
     def __init__(self, cfg: DictConfig, trainer: Trainer):
@@ -83,7 +85,7 @@ class MegatronT5BaseAdapterModel(MegatronT5PromptLearningModel):
                 enc_input=None,
             )
         else:
-            with torch.autocast(device_type="cuda", dtype=self.autocast_dtype):
+            with torch.autocast(device_type=get_current_device_type(), dtype=self.autocast_dtype):
                 output = self.frozen_model.enc_dec_model(
                     enc_input_ids=input_ids,
                     enc_attn_mask=enc_mask,
@@ -239,10 +241,10 @@ class MegatronT5BaseAdapterModel(MegatronT5PromptLearningModel):
                 inference_max_sequence_len,
             ) = batch
 
-            tokens = tokens.cuda()
-            attention_mask = attention_mask.cuda()
-            position_ids = position_ids.cuda()
-            task_ids = task_ids.cuda()
+            tokens = tokens.to(device=get_current_device())
+            attention_mask = attention_mask.to(device=get_current_device())
+            position_ids = position_ids.to(device=get_current_device())
+            task_ids = task_ids.to(device=get_current_device())
             extra_arg['set_inference_key_value_memory'] = set_inference_key_value_memory[0].item()
             extra_arg['inference_max_sequence_len'] = inference_max_sequence_len[0].item()
 
@@ -292,7 +294,7 @@ class MegatronT5BaseAdapterModel(MegatronT5PromptLearningModel):
                 # only the last pipeline parallel stages return loss
                 averaged_loss = torch.stack([i['loss'] for i in self.validation_step_outputs]).mean()
             else:
-                averaged_loss = torch.tensor(0.0).cuda()
+                averaged_loss = torch.tensor(0.0).to(device=get_current_device())
 
             # we can only log on one rank if it is rank zero so we broadcast from last rank
             torch.distributed.broadcast(averaged_loss, get_last_rank())
@@ -318,7 +320,8 @@ class MegatronT5BaseAdapterModel(MegatronT5PromptLearningModel):
             torch.distributed.all_gather_object(
                 gather_results,
                 [(input, pred, label) for (input, pred, label) in zip(all_inputs, all_preds, all_labels)],
-                group=parallel_state.get_data_parallel_group(),
+                group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
             )
 
             # Deduplicate sentences that may have been distributed across multiple data parallel ranks.
@@ -332,11 +335,11 @@ class MegatronT5BaseAdapterModel(MegatronT5PromptLearningModel):
                         correct += 1
 
                 val_acc = correct / len(gather_results_dedup)
-                val_acc = torch.tensor(val_acc).cuda()
+                val_acc = torch.tensor(val_acc).to(device=get_current_device())
 
                 logging.info(f'Validation accuracy: {val_acc}')
             else:
-                val_acc = torch.tensor(0.0).cuda()
+                val_acc = torch.tensor(0.0).to(device=get_current_device())
 
             self.log('val_acc', val_acc, prog_bar=True, rank_zero_only=True, batch_size=1)
 

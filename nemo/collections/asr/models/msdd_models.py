@@ -22,6 +22,7 @@ from pathlib import Path
 from statistics import mode
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from hydra.utils import instantiate
@@ -184,12 +185,7 @@ class EncDecDiarLabelModel(ModelPT, ExportableEncDecModel):
         model_path = self.cfg_msdd_model.diarizer.speaker_embeddings.model_path
         self._diarizer_params = self.cfg_msdd_model.diarizer
 
-        if not torch.cuda.is_available():
-            rank_id = torch.device('cpu')
-        elif self._trainer:
-            rank_id = torch.device(self._trainer.global_rank)
-        else:
-            rank_id = None
+        rank_id = get_current_device()
 
         if model_path is not None and model_path.endswith('.nemo'):
             self.msdd._speaker_model = EncDecSpeakerLabelModel.restore_from(model_path, map_location=rank_id)

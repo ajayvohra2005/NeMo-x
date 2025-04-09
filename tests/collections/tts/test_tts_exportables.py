@@ -14,6 +14,7 @@
 import os
 import tempfile
 
+from nemo.utils import get_current_device
 import pytest
 import torch
 from omegaconf import OmegaConf
@@ -63,7 +64,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_FastPitchModel_export_to_onnx(self, fastpitch_model):
-        model = fastpitch_model.cuda()
+        model = fastpitch_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'fp.onnx')
             model.export(output=filename, verbose=True, onnx_opset_version=14, check_trace=True, use_dynamo=True)
@@ -73,7 +74,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_HifiGanModel_export_to_onnx(self, hifigan_model):
-        model = hifigan_model.cuda()
+        model = hifigan_model.to(device=get_current_device())
         assert hifigan_model.generator is not None
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'hfg.onnx')
@@ -83,7 +84,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_RadTTSModel_export_to_torchscript(self, radtts_model):
-        model = radtts_model.cuda()
+        model = radtts_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'rad.ts')
             with torch.cuda.amp.autocast(enabled=True, cache_enabled=False, dtype=torch.float16):
@@ -95,7 +96,7 @@ class TestExportable:
     @pytest.mark.run_only_on('GPU')
     @pytest.mark.unit
     def test_RadTTSModel_export_to_onnx(self, radtts_model):
-        model = radtts_model.cuda()
+        model = radtts_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'rad.onnx')
             with torch.cuda.amp.autocast(enabled=True, cache_enabled=False, dtype=torch.float16):

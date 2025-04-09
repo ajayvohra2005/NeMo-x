@@ -17,6 +17,7 @@ import json
 import os
 from typing import List, Optional
 
+from nemo.utils import get_current_device
 import torch
 from hydra.utils import instantiate
 from lightning.pytorch import Trainer
@@ -292,7 +293,7 @@ class HeteronymClassificationModel(NLPModel):
         all_preds = []
         mode = self.training
         try:
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            device = get_current_device()
             # Switch model to evaluation mode
             self.eval()
             self.to(device)

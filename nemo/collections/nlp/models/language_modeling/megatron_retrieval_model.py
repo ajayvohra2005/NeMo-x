@@ -15,6 +15,7 @@
 import math
 from typing import Any, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf import DictConfig
@@ -88,7 +89,7 @@ class MegatronRetrievalModel(MegatronBaseModel, TextGeneration):
 
             if not self.with_distributed_adam:
                 # Pre-allocate the model on GPU to have master parameters allocated on the same device with matching data type
-                self.model.cuda(torch.cuda.current_device())
+                self.model.cuda(get_current_device())
 
             # Model wrapper to convert both model and inputs to half precision
             self.model = Float16Module(
@@ -507,7 +508,7 @@ class MegatronRetrievalModel(MegatronBaseModel, TextGeneration):
         if length_params is None:
             length_params = get_default_length_params()
 
-        return megatron_gpt_generate(self.cuda(), inputs, self.tokenizer, length_params, sampling_params, **args)
+        return megatron_gpt_generate(self.to(device=get_current_device()), inputs, self.tokenizer, length_params, sampling_params, **args)
 
     def get_forward_output_only_func(self):
         """
@@ -532,8 +533,8 @@ class MegatronRetrievalModel(MegatronBaseModel, TextGeneration):
                 retrieved = None
                 retrieved_mask = None
             else:
-                retrieved = retrieved.cuda()
-                retrieved_mask = retrieved_mask.cuda()
+                retrieved = retrieved.to(device=get_current_device())
+                retrieved_mask = retrieved_mask.to(device=get_current_device())
 
             extra_arg['set_inference_key_value_memory'] = set_inference_key_value_memory[0].item()
             extra_arg['inference_max_sequence_len'] = inference_max_sequence_len[0].item()

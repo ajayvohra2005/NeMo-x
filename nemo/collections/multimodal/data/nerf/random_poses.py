@@ -15,6 +15,7 @@
 import random
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -57,7 +58,7 @@ def rand_poses(
     jitter_target: float = 0.2,
     jitter_up: float = 0.02,
     return_dirs: bool = False,
-    device: torch.device = "cuda",
+    device: torch.device = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
     """
     Generate random poses from an orbit camera.
@@ -86,6 +87,7 @@ def rand_poses(
             - dirs (torch.Tensor, optional): View directions, if requested.
     """
 
+    device = device if device else get_current_device()
     # Convert angles from degrees to radians
     theta_range = np.radians(theta_range)
     phi_range = np.radians(phi_range)
@@ -171,7 +173,7 @@ def sample_uniform_sphere(
 
 
 def sample_orbit(
-    size: int, radius: torch.Tensor, theta_range: np.ndarray, phi_range: np.ndarray, device: torch.device = "cuda"
+    size: int, radius: torch.Tensor, theta_range: np.ndarray, phi_range: np.ndarray, device: torch.device = None
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Sample points on a spherical orbit.
@@ -189,6 +191,7 @@ def sample_orbit(
             - thetas (torch.Tensor): Elevation angles in radians.
             - phis (torch.Tensor): Azimuth angles in radians.
     """
+    device = device if device else get_current_device()
     thetas = torch.rand(size, device=device) * (theta_range[1] - theta_range[0]) + theta_range[0]
     phis = torch.rand(size, device=device) * (phi_range[1] - phi_range[0]) + phi_range[0]
     phis[phis < 0] += 2 * np.pi

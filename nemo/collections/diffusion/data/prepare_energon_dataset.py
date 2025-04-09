@@ -16,6 +16,7 @@ import os
 import pickle
 from typing import Callable
 
+from nemo.utils import get_current_device
 import nemo_run as run
 import numpy as np
 import pandas as pd
@@ -43,7 +44,7 @@ def initialize_text_encoder(t5_cache_dir):
     # Load tokenizer and text encoder, save in cache directory
     tokenizer = T5TokenizerFast.from_pretrained("google-t5/t5-11b", cache_dir=t5_cache_dir)
     text_encoder = T5EncoderModel.from_pretrained("google-t5/t5-11b", cache_dir=t5_cache_dir)
-    text_encoder.to("cuda")
+    text_encoder.to(device=get_current_device())
     text_encoder.eval()
 
     return tokenizer, text_encoder
@@ -115,8 +116,8 @@ def encode_for_batch(
     )
 
     # We expect all the processing is done in GPU.
-    input_ids = batch_encoding.input_ids.cuda()
-    attn_mask = batch_encoding.attention_mask.cuda()
+    input_ids = batch_encoding.input_ids.to(device=get_current_device())
+    attn_mask = batch_encoding.attention_mask.to(device=get_current_device())
     if output_mapping:
         offsets_mapping = batch_encoding["offset_mapping"]
         offsets_mapping = offsets_mapping.cpu().numpy()

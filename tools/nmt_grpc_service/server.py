@@ -19,6 +19,7 @@ from concurrent import futures
 import api.nmt_pb2 as nmt
 import api.nmt_pb2_grpc as nmtsrv
 import grpc
+from nemo.utils.device_utils import get_current_device
 import torch
 
 import nemo.collections.nlp as nemo_nlp
@@ -90,7 +91,7 @@ class RivaTranslateServicer(nmtsrv.RivaTranslateServicer):
             raise NotImplemented(f"Only support .nemo files, but got: {punctuation_model_path}")
 
         if torch.cuda.is_available():
-            self.punctuation_model = self.punctuation_model.cuda()
+            self.punctuation_model = self.punctuation_model.to(device=get_current_device())
 
     def _load_model(self, model_path):
         if model_path.endswith(".nemo"):
@@ -101,7 +102,7 @@ class RivaTranslateServicer(nmtsrv.RivaTranslateServicer):
             model.beam_search.len_pen = self._len_pen
             model.beam_search.max_delta_length = self._max_delta_length
             if torch.cuda.is_available():
-                model = model.cuda()
+                model = model.to(device=get_current_device())
         else:
             raise NotImplemented(f"Only support .nemo files, but got: {model_path}")
 
@@ -119,7 +120,7 @@ class RivaTranslateServicer(nmtsrv.RivaTranslateServicer):
         if tgt_language not in self._models[src_language]:
             self._models[src_language][tgt_language] = model
             if torch.cuda.is_available():
-                self._models[src_language][tgt_language] = self._models[src_language][tgt_language].cuda()
+                self._models[src_language][tgt_language] = self._models[src_language][tgt_language].to(device=get_current_device())
         else:
             raise ValueError(f"Already found model for language pair {src_language}-{tgt_language}")
 

@@ -17,6 +17,7 @@
 import pickle
 from collections.abc import Iterable
 from typing import List, Optional, Tuple, Union
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -132,9 +133,9 @@ def send_generate_info(
 
     # send end strings
     string_tensor = torch.as_tensor(
-        np.frombuffer(pickle.dumps(end_strings), dtype=np.int8), device=torch.cuda.current_device()
+        np.frombuffer(pickle.dumps(end_strings), dtype=np.int8), device=get_current_device()
     )
-    size = torch.as_tensor([string_tensor.size(0)], device=torch.cuda.current_device(), dtype=torch.int64)
+    size = torch.as_tensor([string_tensor.size(0)], device=get_current_device(), dtype=torch.int64)
     torch.distributed.broadcast(size, src, model_parallel_group)
     torch.distributed.broadcast(string_tensor, src, model_parallel_group)
 
@@ -143,9 +144,9 @@ def send_generate_info(
 
     if context_start_idx is not None:
         context_idx_tensor = torch.as_tensor(
-            np.frombuffer(pickle.dumps(context_start_idx), dtype=np.int8), device=torch.cuda.current_device()
+            np.frombuffer(pickle.dumps(context_start_idx), dtype=np.int8), device=get_current_device()
         )
-        ctx_size = torch.as_tensor([context_idx_tensor.size(0)], device=torch.cuda.current_device(), dtype=torch.int64)
+        ctx_size = torch.as_tensor([context_idx_tensor.size(0)], device=get_current_device(), dtype=torch.int64)
         torch.distributed.broadcast(ctx_size, src, model_parallel_group)
         torch.distributed.broadcast(context_idx_tensor, src, model_parallel_group)
 
@@ -156,7 +157,7 @@ def receive_generate_info(has_multi_audios=False):
     """
     model_parallel_group = parallel_state.get_model_parallel_group()
     src = text_generation_utils.get_model_parallel_src_rank()
-    input_info_tensor = torch.empty(12, dtype=torch.float32, device=torch.cuda.current_device())
+    input_info_tensor = torch.empty(12, dtype=torch.float32, device=get_current_device())
     torch.distributed.broadcast(input_info_tensor, src, model_parallel_group)
     batch_size = int(input_info_tensor[0].item())
     seq_len = int(input_info_tensor[1].item())
@@ -171,22 +172,22 @@ def receive_generate_info(has_multi_audios=False):
     repetition_penalty = float(input_info_tensor[10].item())
     min_tokens_to_generate = int(input_info_tensor[11].item())
 
-    context_length_tensor = torch.empty(batch_size, dtype=torch.int64, device=torch.cuda.current_device())
-    context_tokens_tensor = torch.empty(batch_size, seq_len, dtype=torch.int64, device=torch.cuda.current_device())
+    context_length_tensor = torch.empty(batch_size, dtype=torch.int64, device=get_current_device())
+    context_tokens_tensor = torch.empty(batch_size, seq_len, dtype=torch.int64, device=get_current_device())
     # Send variables to all ranks
     torch.distributed.broadcast(context_length_tensor, src, model_parallel_group)
     torch.distributed.broadcast(context_tokens_tensor, src, model_parallel_group)
 
-    audio_signal = torch.empty(batch_size, audio_len, dtype=torch.float32, device=torch.cuda.current_device())
-    audio_signal_length = torch.empty(batch_size, dtype=torch.int64, device=torch.cuda.current_device())
+    audio_signal = torch.empty(batch_size, audio_len, dtype=torch.float32, device=get_current_device())
+    audio_signal_length = torch.empty(batch_size, dtype=torch.int64, device=get_current_device())
     # Send variables to all ranks
     torch.distributed.broadcast(audio_signal, src, model_parallel_group)
     torch.distributed.broadcast(audio_signal_length, src, model_parallel_group)
 
-    array_size = torch.empty(1, dtype=torch.int64, device=torch.cuda.current_device())
+    array_size = torch.empty(1, dtype=torch.int64, device=get_current_device())
     torch.distributed.broadcast(array_size, src, model_parallel_group)
 
-    string_tensor = torch.empty(array_size[0], dtype=torch.int8, device=torch.cuda.current_device())
+    string_tensor = torch.empty(array_size[0], dtype=torch.int8, device=get_current_device())
     torch.distributed.broadcast(string_tensor, src, model_parallel_group)
     bytes = string_tensor.cpu().numpy().tobytes()
     end_strings = pickle.loads(bytes)
@@ -194,12 +195,12 @@ def receive_generate_info(has_multi_audios=False):
     num_audios = None
     context_start_idx = None
     if has_multi_audios:
-        num_audios = torch.empty(batch_size, dtype=torch.int64, device=torch.cuda.current_device())
+        num_audios = torch.empty(batch_size, dtype=torch.int64, device=get_current_device())
         torch.distributed.broadcast(num_audios, src, model_parallel_group)
 
-        array_size = torch.empty(1, dtype=torch.int64, device=torch.cuda.current_device())
+        array_size = torch.empty(1, dtype=torch.int64, device=get_current_device())
         torch.distributed.broadcast(array_size, src, model_parallel_group)
-        context_idx_tensor = torch.empty(array_size[0], dtype=torch.int8, device=torch.cuda.current_device())
+        context_idx_tensor = torch.empty(array_size[0], dtype=torch.int8, device=get_current_device())
         torch.distributed.broadcast(context_idx_tensor, src, model_parallel_group)
         bytes = context_idx_tensor.cpu().numpy().tobytes()
         context_start_idx = pickle.loads(bytes)
@@ -301,7 +302,7 @@ def synced_generate(
                 else:
                     dtype = torch.float32
                 output_logits = torch.empty(
-                    tokens.size(0), context_length - 1, dtype=dtype, device=torch.device("cuda")
+                    tokens.size(0), context_length - 1, dtype=dtype, device=get_current_device()
                 )
                 torch.distributed.broadcast(output_logits, src, group)
 
@@ -313,7 +314,7 @@ def synced_generate(
                     context_length - 1,
                     model.padded_vocab_size,
                     dtype=dtype,
-                    device=torch.device("cuda"),
+                    device=get_current_device(),
                 )
                 torch.distributed.broadcast(full_logits, src, group)
     if tokens is not None:
@@ -598,14 +599,14 @@ def sample_sequence_batch(
         eod_id = tokenizer.eos_id
         counter = 0
         batch_size = context_tokens.size(0)
-        is_done = torch.zeros([batch_size]).byte().cuda()
+        is_done = torch.zeros([batch_size]).byte().to(device=get_current_device())
         tokens = context_tokens
         output_logits = None
         all_generated_indices = None  # used to track all generated indices
         # Generate enough tokens for the longest sequence
         maxlen = tokens_to_generate + audio_text_context_lengths.max().item()
         maxlen = inference_strategy.clip_max_len(maxlen)
-        lengths = torch.ones([batch_size]).long().cuda() * maxlen
+        lengths = torch.ones([batch_size]).long().to(device=get_current_device()) * maxlen
         while context_length < maxlen:
             batch = inference_strategy.prepare_batch_at_step(
                 tokens,

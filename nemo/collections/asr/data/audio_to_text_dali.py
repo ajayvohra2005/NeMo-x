@@ -19,6 +19,7 @@ import time
 from collections.abc import Iterator
 from typing import Callable, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from omegaconf import DictConfig
 
@@ -187,7 +188,7 @@ class _AudioTextDALIDataset(Iterator):
                 f"{self} received an unexpected device argument {device}. Supported values are: 'cpu', 'gpu'"
             )
 
-        device_id = device_id if device == 'gpu' else None
+        device_id = device_id if device.index else None
 
         self.batch_size = batch_size  # Used by NeMo
 
@@ -392,12 +393,12 @@ class _AudioTextDALIDataset(Iterator):
             if trim:
                 # Need to extract non-silent region before moving to the GPU
                 roi_start, roi_len = dali.fn.nonsilent_region(audio, cutoff_db=-60)
-                audio = audio.gpu() if self.device == 'gpu' else audio
+                audio = audio.to(device=get_current_device())
                 audio = dali.fn.slice(
                     audio, roi_start, roi_len, normalized_anchor=False, normalized_shape=False, axes=[0]
                 )
             else:
-                audio = audio.gpu() if self.device == 'gpu' else audio
+                audio = audio.to(device=get_current_device())
 
             if not has_preprocessor:
                 # No preprocessing, the output is the audio signal

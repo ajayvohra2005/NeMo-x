@@ -13,6 +13,7 @@
 # limitations under the License.
 import contextlib
 
+from nemo.utils import get_current_device
 import torch
 from hydra.utils import instantiate
 from lightning.pytorch import Trainer
@@ -96,7 +97,7 @@ class RadTTSModel(SpectrogramGenerator, Exportable):
 
     def batch_dict(self, batch_data):
         if len(batch_data) < 14:
-            spk_id = torch.tensor([0] * (batch_data[3]).size(0)).cuda().to(self.device)
+            spk_id = torch.tensor([0] * (batch_data[3]).size(0)).to(device=get_current_device()).to(self.device)
             v_m = batch_data[9]
             p_v = batch_data[10]
         else:
@@ -325,7 +326,7 @@ class RadTTSModel(SpectrogramGenerator, Exportable):
         self.eval()
         if self.training:
             logging.warning("generate_spectrogram() is meant to be called in eval mode.")
-        speaker = torch.tensor([speaker]).long().cuda().to(self.device)
+        speaker = torch.tensor([speaker]).long().to(device=get_current_device()).to(self.device)
         outputs = self.model.infer(speaker, tokens, sigma=sigma)
 
         spect = outputs['mel']
@@ -395,7 +396,7 @@ class RadTTSModel(SpectrogramGenerator, Exportable):
             tokens = self.tokenizer.encode(text)
         print("text to token phone_prob")
 
-        return torch.tensor(tokens).long().unsqueeze(0).cuda().to(self.device)
+        return torch.tensor(tokens).long().unsqueeze(0).to(device=get_current_device()).to(self.device)
 
     @property
     def tb_logger(self):

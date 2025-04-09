@@ -50,8 +50,10 @@ from nemo.lightning import (
 from nemo.lightning.base import NEMO_MODELS_CACHE
 from nemo.lightning.ckpt_utils import ckpt_to_context_subdir
 from nemo.lightning.pytorch.callbacks import PEFT, JitTransform, ModelTransform
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 from nemo.utils.get_rank import is_global_rank_zero
+
+xm = get_xla_model()
 
 if TYPE_CHECKING:
     from megatron.core.inference.common_inference_params import CommonInferenceParams
@@ -1100,7 +1102,8 @@ def generate(
     all_gather_object(
         gathered_results,
         [r.generated_text if text_only else r for r in results_on_this_dp_rank],
-        group=parallel_state.get_data_parallel_group(),
+        group=parallel_state.get_data_parallel_group() if not xm else \
+            parallel_state.get_data_parallel_group_gloo()
     )
     gathered_results = [result for sublist in gathered_results for result in sublist]
 

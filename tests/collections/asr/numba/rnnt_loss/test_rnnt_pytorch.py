@@ -14,6 +14,7 @@
 
 import random
 
+from nemo.utils import get_current_device
 import numpy as np
 import pytest
 import torch
@@ -45,7 +46,7 @@ def wrap_and_call(fn, acts, labels, device):
         acts = torch.tensor(acts)
 
     if 'cuda' in device:
-        acts = acts.cuda()
+        acts = acts.to(device=get_current_device())
 
     if not acts.requires_grad:
         acts.requires_grad = True
@@ -56,9 +57,9 @@ def wrap_and_call(fn, acts, labels, device):
     lengths = torch.LongTensor(lengths)
     label_lengths = torch.LongTensor(label_lengths)
     if 'cuda' in device:
-        labels = labels.cuda()
-        lengths = lengths.cuda()
-        label_lengths = label_lengths.cuda()
+        labels = labels.to(device=get_current_device())
+        lengths = lengths.to(device=get_current_device())
+        label_lengths = label_lengths.to(device=get_current_device())
 
     costs = fn(acts, labels, lengths, label_lengths)
     cost = torch.sum(costs)

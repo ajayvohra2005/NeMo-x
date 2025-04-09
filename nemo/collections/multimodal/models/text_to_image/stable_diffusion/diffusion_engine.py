@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Tuple, Union
 
 import hydra
 import lightning.pytorch as pl
+from nemo.utils import get_current_device, get_current_device_type
 import torch
 import torch._dynamo
 import torch.nn as nn
@@ -50,7 +51,7 @@ from nemo.collections.nlp.parts.peft_config import PEFT_CONFIG_MAP, PEFTConfig
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes import ModelPT, Serialization
 from nemo.core.classes.mixins.adapter_mixins import AdapterModuleMixin
-from nemo.utils import logging, model_utils
+from nemo.utils import logging, model_utils, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -74,6 +75,7 @@ UNCONDITIONAL_CONFIG = {
     "params": {"emb_models": []},
 }
 
+xm = get_xla_model
 
 class DiffusionEngine(nn.Module, Serialization):
     def __init__(self, cfg, model_parallel_config):
@@ -118,7 +120,7 @@ class DiffusionEngine(nn.Module, Serialization):
         self.model_type = None
 
         self.rng = torch.Generator(
-            device=torch.cuda.current_device(),
+            device=get_current_device(),
         )
 
         self.use_ema = False  # TODO use_ema need to switch to NeMo style
@@ -154,20 +156,20 @@ class DiffusionEngine(nn.Module, Serialization):
     @torch.no_grad()
     def decode_first_stage(self, z):
         z = 1.0 / self.scale_factor * z
-        with torch.autocast("cuda", enabled=not self.disable_first_stage_autocast):
+        with torch.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
             out = self.first_stage_model.decode(z)
         return out
 
     # same as above but differentiable
     def differentiable_decode_first_stage(self, z):
         z = 1.0 / self.scale_factor * z
-        with torch.autocast("cuda", enabled=not self.disable_first_stage_autocast):
+        with torch.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
             out = self.first_stage_model.decode(z)
         return out
 
     @torch.no_grad()
     def encode_first_stage(self, x):
-        with torch.autocast("cuda", enabled=not self.disable_first_stage_autocast):
+        with torch.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
             z = self.first_stage_model.encode(x)
         z = self.scale_factor * z
         return z
@@ -411,7 +413,7 @@ class MegatronDiffusionEngine(NLPAdapterModelMixin, MegatronBaseModel):
     def on_train_batch_start(self, batch, batch_idx, dataloader_idx=0):
         if self.cfg.scale_by_std and self.current_epoch == 0 and self.global_step == 0 and batch_idx == 0:
             assert self.cfg.scale_factor == 1.0, 'rather not use custom rescaling and std-rescaling simultaneously'
-            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].cuda(non_blocking=True)
+            batch[self.cfg.first_stage_key] = batch[self.cfg.first_stage_key].to(get_current_device())
             self.model.on_train_batch_start(batch, batch_idx)
 
     def fwd_bwd_step(self, dataloader_iter, forward_only):
@@ -455,7 +457,7 @@ class MegatronDiffusionEngine(NLPAdapterModelMixin, MegatronBaseModel):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0, device=torch.cuda.current_device())
+                loss_mean = torch.tensor(0.0, device=get_current_device())
 
         return loss_mean, loss_dict
 
@@ -549,13 +551,13 @@ class MegatronDiffusionEngine(NLPAdapterModelMixin, MegatronBaseModel):
                 dtype=self.autocast_dtype,
             ):
                 if self.model.precache_mode == 'both':
-                    x = batch[self.model.input_key].to(torch.cuda.current_device())
+                    x = batch[self.model.input_key].to(get_current_device())
                     if self.model.channels_last:
                         x = x.to(memory_format=torch.channels_last, non_blocking=True)
                     else:
                         x = x.to(memory_format=torch.contiguous_format, non_blocking=True)
                 else:
-                    x = batch[self.model.input_key].to(torch.cuda.current_device())
+                    x = batch[self.model.input_key].to(get_current_device())
                     if self.model.channels_last:
                         x = x.permute(0, 3, 1, 2).to(memory_format=torch.channels_last, non_blocking=True)
                     else:
@@ -611,9 +613,14 @@ class MegatronDiffusionEngine(NLPAdapterModelMixin, MegatronBaseModel):
             num_parameters_on_device = sum([p.nelement() for p in self.model.parameters()])
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda(non_blocking=True)
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
 
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                          groups=parallel_state.get_model_parallel_groups(), 
+                          pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

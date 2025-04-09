@@ -21,6 +21,7 @@ from pathlib import Path
 from types import MethodType
 from typing import Any, Dict, List, Sequence, Tuple, Union
 
+from nemo.utils import get_current_device
 import torch
 
 from nemo.utils.export_utils import add_casts_around_norms, replace_for_export
@@ -250,7 +251,7 @@ def make_tensor(d):
     """
     Creates a new tensor from d, returns d if d is already a tensor
     """
-    return d if isinstance(d, torch.Tensor) else torch.tensor(d).cuda()
+    return d if isinstance(d, torch.Tensor) else torch.tensor(d).to(device=get_current_device())
 
 
 def unroll_input(input_names, input_example):
@@ -489,7 +490,7 @@ class TrtCompiler:
             if self.engine is not None:
                 # forward_trt is not thread safe as we do not use per-thread execution contexts
                 with lock_sm:
-                    device = torch.cuda.current_device()
+                    device = get_current_device()
                     stream = torch.cuda.Stream(device=device)
                     self.engine.set_inputs(unroll_input(self.input_names, args), stream.cuda_stream)
                     self.engine.allocate_buffers(device=device)

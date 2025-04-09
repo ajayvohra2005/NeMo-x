@@ -23,7 +23,7 @@ import torch
 from torch import nn
 
 from nemo.lightning.megatron_init import initialize_model_parallel_for_nemo
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 NEMO_MEGATRON_MODEL_PARALLEL_APPSTATE_OVERRIDE = "NEMO_MEGATRON_MODEL_PARALLEL_APPSTATE_OVERRIDE"
 
@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from lightning.fabric.utilities.types import Optimizable
     from megatron.core.model_parallel_config import ModelParallelConfig
 
+
+xm = get_xla_model()
 
 class SharedStateDictProtocol(Protocol):
     """ """
@@ -267,11 +269,16 @@ class GradScaler(torch.cuda.amp.GradScaler):
         found_inf = torch.cuda.FloatTensor([sum(v.item() for v in optimizer_state["found_inf_per_device"].values())])
 
         # Update across all model parallel instances.
-        torch.distributed.all_reduce(
-            found_inf,
-            op=torch.distributed.ReduceOp.MAX,
-            group=parallel_state.get_model_parallel_group(),
-        )
+        if xm:
+            xm.all_reduce(xm.REDUCE_MAX, [found_inf], 
+                        groups=parallel_state.get_model_parallel_groups(), 
+                        pin_layout=False)
+        else:
+            torch.distributed.all_reduce(
+                found_inf,
+                op=torch.distributed.ReduceOp.MAX,
+                group=parallel_state.get_model_parallel_group(),
+            )
 
         if found_inf.item() == 0:
             retval = optimizer.step(*args, **kwargs)
@@ -320,21 +327,31 @@ class GradScaler(torch.cuda.amp.GradScaler):
             found_inf_combined = found_infs[0]
 
             # Update across all model parallel instances.
-            torch.distributed.all_reduce(
-                found_inf_combined,
-                op=torch.distributed.ReduceOp.MAX,
-                group=parallel_state.get_model_parallel_group(),
+            if xm:
+                xm.all_reduce(xm.REDUCE_MAX, [found_inf_combined], 
+                            groups=parallel_state.get_model_parallel_groups(), 
+                            pin_layout=False)
+            else:
+                torch.distributed.all_reduce(
+                    found_inf_combined,
+                    op=torch.distributed.ReduceOp.MAX,
+                    group=parallel_state.get_model_parallel_group(),
             )
 
             if len(found_infs) > 1:
                 for i in range(1, len(found_infs)):
                     found_inf = found_infs[i]
                     # Update across all model parallel instances.
-                    torch.distributed.all_reduce(
-                        found_inf,
-                        op=torch.distributed.ReduceOp.MAX,
-                        group=parallel_state.get_model_parallel_group(),
-                    )
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_MAX, [found_inf], 
+                                    groups=parallel_state.get_model_parallel_groups(), 
+                                    pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(
+                            found_inf,
+                            op=torch.distributed.ReduceOp.MAX,
+                            group=parallel_state.get_model_parallel_group(),
+                        )
                     found_inf_combined += found_inf
 
             if found_inf_combined > 0:

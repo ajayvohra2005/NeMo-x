@@ -18,6 +18,7 @@ import multiprocessing
 from collections import defaultdict
 from pathlib import Path
 
+from nemo.utils import get_current_device
 import torch
 from tensorrt_llm._utils import pad_vocab_size, str_dtype_to_torch
 from tqdm import tqdm
@@ -428,7 +429,7 @@ def dist_model_to_trt_llm_ckpt(
                 shape = [None]
             shape = broadcast_item(shape, pp_group, pp_src_idx)
             if torch.distributed.get_rank() != pp_src_idx:
-                tensor = torch.zeros(shape, dtype=storage_type).cuda()
+                tensor = torch.zeros(shape, dtype=storage_type).to(device=get_current_device())
             torch.distributed.broadcast(tensor.contiguous(), pp_src_idx, group=pp_group)
         return tensor
 
@@ -459,7 +460,7 @@ def dist_model_to_trt_llm_ckpt(
             )
             dim_size = list(tensor.size())
             dim_size[0] = vocab_size_padded
-            gathered_tensor = torch.zeros(dim_size, dtype=tensor.dtype, device=torch.cuda.current_device())
+            gathered_tensor = torch.zeros(dim_size, dtype=tensor.dtype, device=get_current_device())
             gathered_tensor[vocab_start_index:vocab_end_index] = tensor
             torch.distributed.all_reduce(gathered_tensor, group=tp_group)
             tensor = gathered_tensor

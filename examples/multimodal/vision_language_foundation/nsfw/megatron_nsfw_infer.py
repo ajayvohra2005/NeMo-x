@@ -67,7 +67,7 @@ def main(cfg) -> None:
     with torch.no_grad(), torch.cuda.amp.autocast(
         enabled=autocast_dtype in (torch.half, torch.bfloat16), dtype=autocast_dtype,
     ):
-        image = image_transform_fn(image).unsqueeze(0).cuda()
+        image = image_transform_fn(image).unsqueeze(0).to(device=get_current_device())
         probability = model(image).sigmoid()
 
     if is_global_rank_zero:

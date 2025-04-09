@@ -15,6 +15,7 @@ import tempfile
 import unittest
 from typing import List
 
+from nemo.utils import get_current_device
 import torch
 
 TEST_CASE_1 = ["fp32"]
@@ -38,10 +39,10 @@ class ListAdd(torch.nn.Module):
 class TestTRTCompile(unittest.TestCase):
 
     def setUp(self):
-        self.gpu_device = torch.cuda.current_device()
+        self.gpu_device = get_current_device()
 
     def tearDown(self):
-        current_device = torch.cuda.current_device()
+        current_device = get_current_device()
         if current_device != self.gpu_device:
             torch.cuda.set_device(self.gpu_device)
 
@@ -52,8 +53,8 @@ class TestTRTCompile(unittest.TestCase):
         data1["0.weight"] = torch.tensor([0.1])
         data1["1.weight"] = torch.tensor([0.2])
         model.load_state_dict(data1)
-        model.cuda()
-        x = torch.randn(1, 16).to("cuda")
+        model.to(device=get_current_device())
+        x = torch.randn(1, 16).to(device=get_current_device())
 
         with tempfile.TemporaryDirectory() as tempdir:
             args = {
@@ -74,7 +75,7 @@ class TestTRTCompile(unittest.TestCase):
             torch.testing.assert_close(trt_output, output_example, rtol=0.01, atol=0.01)
 
     def test_profiles(self):
-        model = ListAdd().cuda()
+        model = ListAdd().to(device=get_current_device())
 
         with torch.no_grad(), tempfile.TemporaryDirectory() as tmpdir:
             args = {
@@ -92,9 +93,9 @@ class TestTRTCompile(unittest.TestCase):
                 ],
                 "output_lists": [[-1], [2], []],
             }
-            x = torch.randn(1, 16).to("cuda")
-            y = torch.randn(1, 16).to("cuda")
-            z = torch.randn(1, 16).to("cuda")
+            x = torch.randn(1, 16).to(device=get_current_device())
+            y = torch.randn(1, 16).to(device=get_current_device())
+            z = torch.randn(1, 16).to(device=get_current_device())
             input_example = ([x, y, z], y.clone(), z.clone())
             output_example = model(*input_example)
             trt_compile(
@@ -109,7 +110,7 @@ class TestTRTCompile(unittest.TestCase):
             torch.testing.assert_close(trt_output, output_example, rtol=0.01, atol=0.01)
 
     def test_lists(self):
-        model = ListAdd().cuda()
+        model = ListAdd().to(device=get_current_device())
 
         with torch.no_grad(), tempfile.TemporaryDirectory() as tmpdir:
             args = {
@@ -118,9 +119,9 @@ class TestTRTCompile(unittest.TestCase):
                 },
                 "output_lists": [[-1], [2], []],
             }
-            x = torch.randn(1, 16).to("cuda")
-            y = torch.randn(1, 16).to("cuda")
-            z = torch.randn(1, 16).to("cuda")
+            x = torch.randn(1, 16).to(device=get_current_device())
+            y = torch.randn(1, 16).to(device=get_current_device())
+            z = torch.randn(1, 16).to(device=get_current_device())
             input_example = ([x, y, z], y.clone(), z.clone())
             output_example = model(*input_example)
             trt_compile(

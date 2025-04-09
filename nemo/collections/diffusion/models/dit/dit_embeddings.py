@@ -27,6 +27,8 @@ from megatron.core.models.common.embeddings.rotary_pos_embedding import get_pos_
 from megatron.core.transformer.module import MegatronModule
 from torch import nn
 
+from nemo.utils import get_current_device
+
 
 class ParallelTimestepEmbedding(TimestepEmbedding):
     """
@@ -87,7 +89,7 @@ def get_pos_emb_on_this_cp_rank(pos_emb, seq_dim):
     """
     cp_size = parallel_state.get_context_parallel_world_size()
     cp_rank = parallel_state.get_context_parallel_rank()
-    cp_idx = torch.tensor([cp_rank], device="cpu", pin_memory=True).cuda(non_blocking=True)
+    cp_idx = torch.tensor([cp_rank], device="cpu", pin_memory=True).to(device=get_current_device())
     pos_emb = pos_emb.view(*pos_emb.shape[:seq_dim], cp_size, -1, *pos_emb.shape[(seq_dim + 1) :])
     pos_emb = pos_emb.index_select(seq_dim, cp_idx)
     pos_emb = pos_emb.view(*pos_emb.shape[:seq_dim], -1, *pos_emb.shape[(seq_dim + 2) :])

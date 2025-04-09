@@ -219,7 +219,7 @@ class MegatronLLMDeployableNemo2(ITritonDeployable):
         """
 
         while True:
-            message = torch.empty(1, dtype=torch.long, device="cuda")
+            message = torch.empty(1, dtype=torch.long, device=None)
             torch.distributed.broadcast(message, src=0)
             if message == 0:
                 prompts = broadcast_list(data=[None], src=0)
@@ -325,7 +325,7 @@ class MegatronLLMDeployableNemo2(ITritonDeployable):
             prompts = [prompts]
         if torch.distributed.is_initialized():
             if torch.distributed.get_world_size() > 1:
-                torch.distributed.broadcast(torch.tensor([0], dtype=torch.long, device="cuda"), src=0)
+                torch.distributed.broadcast(torch.tensor([0], dtype=torch.long, device=None), src=0)
                 broadcast_list(prompts, src=0)
                 broadcast_list(
                     data=[

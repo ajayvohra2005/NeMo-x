@@ -13,6 +13,7 @@
 # limitations under the License.
 from abc import ABC, abstractmethod
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -36,8 +37,7 @@ class AbstractBaseSampler(ABC):
 
     def register_buffer(self, name, attr):
         if type(attr) == torch.Tensor:
-            if attr.device != torch.device("cuda"):
-                attr = attr.to(torch.device("cuda"))
+            attr = attr.to(device=get_current_device())
         setattr(self, name, attr)
 
     def make_schedule(self, ddim_num_steps, ddim_discretize="uniform", ddim_eta=0.0, verbose=True):
@@ -49,7 +49,7 @@ class AbstractBaseSampler(ABC):
         )
         alphas_cumprod = self.model.alphas_cumprod
         assert alphas_cumprod.shape[0] == self.ddpm_num_timesteps, "alphas have to be defined for each timestep"
-        to_torch = lambda x: x.clone().detach().to(torch.float32).to(torch.cuda.current_device())
+        to_torch = lambda x: x.clone().detach().to(torch.float32).to(get_current_device())
         self.register_buffer("betas", to_torch(self.model.betas))
         self.register_buffer("alphas_cumprod", to_torch(alphas_cumprod))
         self.register_buffer("alphas_cumprod_prev", to_torch(self.model.alphas_cumprod_prev))

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
 import lightning.pytorch as L
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.distributed
@@ -72,7 +73,7 @@ def clip_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
     if "captions" in _batch and len(_batch["captions"].shape) == 3:
         _batch["captions"] = _batch["captions"].squeeze()
 
-    _batch = {key: val.cuda(non_blocking=True) if val is not None else None for key, val in _batch.items()}
+    _batch = {key: val.to(get_current_device()) if val is not None else None for key, val in _batch.items()}
     return _batch
 
 
@@ -263,7 +264,7 @@ class CLIPTextModel(MCoreGPTModel):
         )
         self.position_ids = None
         if self.pre_process:
-            self.position_ids = torch.arange(max_sequence_length).expand(1, -1).cuda()
+            self.position_ids = torch.arange(max_sequence_length).expand(1, -1).to(device=get_current_device())
 
     def forward(self, input_ids):
         # pylint: disable=C0116
@@ -428,7 +429,7 @@ class CLIPModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNMixin):
         with torch.no_grad():
             zeroshot_weights = []
             for texts in self.imagenet_val["texts"]:
-                texts = texts.cuda(non_blocking=True)
+                texts = texts.to(get_current_device())
                 with torch.cuda.amp.autocast(
                     enabled=True,
                     dtype=torch.bfloat16,
@@ -463,8 +464,8 @@ class CLIPModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNMixin):
                 if images is None or target is None:
                     continue
 
-                images = images.cuda(non_blocking=True).to(torch.bfloat16)
-                target = target.cuda(non_blocking=True)
+                images = images.to(get_current_device()).to(torch.bfloat16)
+                target = target.to(get_current_device())
 
                 # predict
                 with torch.cuda.amp.autocast(
@@ -490,7 +491,7 @@ class CLIPModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNMixin):
     def on_validation_epoch_end(self):
         """Run zero shot evaluation for imagenet validation"""
         if self.imagenet_val is not None:
-            imagenet_metric = torch.zeros(2).cuda()
+            imagenet_metric = torch.zeros(2).to(device=get_current_device())
             imagenet_metric[0], imagenet_metric[1] = self.zero_shot_eval()
             imagenet_metric = average_losses_across_data_parallel_group(imagenet_metric)
             self.log('imagenet_top1', imagenet_metric[0], prog_bar=True, rank_zero_only=True, batch_size=1)

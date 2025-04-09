@@ -30,7 +30,7 @@ from torch import Tensor
 
 def get_swa(seq_q, seq_kv, w):
     """Create the equivalent attention mask fro SWA in [seq_q, seq_kv] shape"""
-    m = torch.ones(seq_q, seq_kv, dtype=torch.bool, device="cuda")
+    m = torch.ones(seq_q, seq_kv, dtype=torch.bool, device=None)
     mu = torch.triu(m, diagonal=seq_kv - seq_q - w[0])
     ml = torch.tril(mu, diagonal=seq_kv - seq_q + w[1])
     ml = ~ml

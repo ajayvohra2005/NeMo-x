@@ -29,7 +29,7 @@ from nemo.collections.nlp.models.information_retrieval.megatron_gpt_embedding_mo
     MegatronGPTEmbeddingModel,
     _gather_global_inbatch_representations,
 )
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -40,6 +40,7 @@ except (ImportError, ModuleNotFoundError):
 
     HAVE_MEGATRON_CORE = False
 
+xm = get_xla_model()
 
 def listify(tensor):
     l_tensor = []
@@ -209,7 +210,12 @@ class MegatronGPTRerankerModel(MegatronGPTEmbeddingModel):
 
         cp_size = self.cfg.get('context_parallel_size', 1)
         if cp_size > 1:
-            torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
+            if xm:
+                xm.all_reduce(xm.REDUCE_SUM, [loss], 
+                                groups=parallel_state.get_context_parallel_groups(), 
+                                pin_layout=False)
+            else:
+                torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
         query_pos_doc_hs = query_pos_doc_hs.clone().detach()
         query_neg_doc_hs = query_neg_doc_hs.clone().detach()
         logit_diffs = torch.mean(query_pos_doc_hs - query_neg_doc_hs)
@@ -233,7 +239,8 @@ class MegatronGPTRerankerModel(MegatronGPTEmbeddingModel):
                 }
                 for batch in output
             ],
-            group=parallel_state.get_data_parallel_group(),
+            group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
         )
 
         # Remove duplicate examples due to distributed sampler.

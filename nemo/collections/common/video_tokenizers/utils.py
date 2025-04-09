@@ -19,18 +19,19 @@ import re
 from glob import glob
 
 import mediapy as media
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 
 from nemo.collections.common.video_tokenizers.networks import TokenizerConfigs, TokenizerModels
 
-_DTYPE, _DEVICE = torch.bfloat16, "cuda"
+_DTYPE, _DEVICE = torch.bfloat16, get_current_device()
 _UINT8_MAX_F = float(torch.iinfo(torch.uint8).max)
 _SPATIAL_ALIGN = 16
 _TEMPORAL_ALIGN = 8
 
 
-def load_jit_model(jit_filepath: str = None, device: str = "cuda") -> torch.jit.ScriptModule:
+def load_jit_model(jit_filepath: str = None, device: torch.device = _DEVICE) -> torch.jit.ScriptModule:
     """Loads a torch.jit.ScriptModule from a filepath.
 
     Args:
@@ -170,7 +171,7 @@ def write_video(filepath: str, video: np.ndarray, fps: int = 24) -> None:
 def numpy2tensor(
     input_image: np.ndarray,
     dtype: torch.dtype = _DTYPE,
-    device: str = _DEVICE,
+    device: torch.device = _DEVICE,
     range_min: int = -1,
 ) -> torch.Tensor:
     """Converts image(dtype=np.uint8) to `dtype` in range [0..255].

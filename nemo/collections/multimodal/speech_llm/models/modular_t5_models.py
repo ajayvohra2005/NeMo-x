@@ -19,6 +19,7 @@ import os
 from functools import partial
 from typing import Any, Optional, Union
 
+from nemo.utils import get_current_device
 import sacrebleu
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
@@ -50,7 +51,7 @@ from nemo.collections.nlp.parts.nlp_overrides import NLPSaveRestoreConnector
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.mixins import adapter_mixins
 from nemo.core.neural_types import AudioSignal, LabelsType, LengthsType, MaskType, NeuralType
-from nemo.utils import AppState, logging, model_utils
+from nemo.utils import AppState, logging, model_utils, get_xla_model
 
 try:
     from megatron.core import parallel_state, tensor_parallel
@@ -86,6 +87,7 @@ __all__ = ["ModularizedAudioT5Model", "DecoderTextPromptModularizedAudioT5Model"
 
 default_inference_config = {'tokens_to_generate': 30}
 
+xm = get_xla_model()
 
 class ModularizedAudioT5Model(MegatronT5LoraModel):
     """Modularized speech GPT model."""
@@ -440,7 +442,7 @@ class ModularizedAudioT5Model(MegatronT5LoraModel):
                 inference_max_sequence_len,
             ) = batch
             if attention_mask is not None:
-                attention_mask = attention_mask.cuda()
+                attention_mask = attention_mask.to(device=get_current_device())
                 attention_mask = attention_mask[0:1]
             extra_arg['set_inference_key_value_memory'] = set_inference_key_value_memory[0].item()
             extra_arg['inference_max_sequence_len'] = inference_max_sequence_len[0].item()
@@ -465,7 +467,7 @@ class ModularizedAudioT5Model(MegatronT5LoraModel):
     def get_forward_output_and_loss_func(self, validation_step=False):
         def fwd_output_and_loss_func(dataloader_iter, model, checkpoint_activations_all_layers=None):
             batch = next(dataloader_iter)
-            batch = {key: val.cuda(non_blocking=True) for key, val in batch.items()}
+            batch = {key: val.to(get_current_device()) for key, val in batch.items()}
             multimodal_output = self.forward(
                 batch, checkpoint_activations_all_layers=checkpoint_activations_all_layers
             )
@@ -513,13 +515,18 @@ class ModularizedAudioT5Model(MegatronT5LoraModel):
                     loss_sum_and_ub_size_all_gpu = torch.cat(
                         [
                             loss_sum_for_ub.clone().detach().view(1),
-                            torch.tensor([num_valid_tokens_in_ub]).cuda().clone().detach(),
+                            torch.tensor([num_valid_tokens_in_ub]).to(device=get_current_device()).clone().detach(),
                         ]
                     )
                     # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
-                    torch.distributed.all_reduce(
-                        loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
-                    )
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
+                                    groups=parallel_state.get_data_parallel_groups(), 
+                                    pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(
+                            loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
+                        )
                     return loss_for_ub, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}
                 else:
                     reduced_loss = average_losses_across_data_parallel_group([loss_for_ub])
@@ -1065,9 +1072,9 @@ class ModularizedAudioT5Model(MegatronT5LoraModel):
                     # Compute the avg loss by total_loss across all samples / total number of samples
                     total_loss_and_total_samples = torch.vstack(loss_vals).sum(axis=0)
                     avg_loss = total_loss_and_total_samples[0] / total_loss_and_total_samples[1]
-                    loss = avg_loss.type(torch.float32).cuda()
+                    loss = avg_loss.type(torch.float32).to(device=get_current_device())
             else:
-                loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+                loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())
 
             # we can only log on one rank if it is rank zero so we broadcast from last rank
             torch.distributed.broadcast(loss, get_last_rank())
@@ -1087,7 +1094,8 @@ class ModularizedAudioT5Model(MegatronT5LoraModel):
                     {'preds': x['preds'], 'labels': x['labels'], 'inputs': x['inputs'], 'metadata': x['metadata']}
                     for x in output
                 ],
-                group=parallel_state.get_data_parallel_group(),
+                group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
             )
 
             # Remove duplicate examples due to distributed sampler.
@@ -1323,14 +1331,14 @@ class ModularizedAudioT5Model(MegatronT5LoraModel):
                     loss_mean = (
                         torch.vstack(loss_sum_tensors_list).sum(axis=0)
                         if len(loss_sum_tensors_list) > 0
-                        else torch.tensor([0.0, 0.0]).cuda()
+                        else torch.tensor([0.0, 0.0]).to(device=get_current_device())
                     )
             else:
                 # we're not on the last pipeline stage so no losses
                 if forward_only:
                     loss_mean = []
                 else:
-                    loss_mean = torch.tensor(0.0).cuda()
+                    loss_mean = torch.tensor(0.0).to(device=get_current_device())
             if loss_mean.ndim == 0:
                 loss_mean = loss_mean.unsqueeze(0)
             batch_losses.append(loss_mean)

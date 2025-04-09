@@ -99,7 +99,7 @@ def main():
     asr_model.preprocessor.featurizer.dither = 0.0
     asr_model.preprocessor.featurizer.pad_to = 0
     if can_gpu:
-        asr_model = asr_model.cuda()
+        asr_model = asr_model.to(device=get_current_device())
     asr_model.eval()
     labels_map = dict([(i, asr_model.decoder.vocabulary[i]) for i in range(len(asr_model.decoder.vocabulary))])
     decoding_cfg = CTCDecodingConfig()
@@ -113,7 +113,7 @@ def get_min_max_input_shape(asr_model):
     max_shape = (1, 64, 1)
     min_shape = (64, 64, 99999)
     for test_batch in asr_model.test_dataloader():
-        test_batch = [x.cuda() for x in test_batch]
+        test_batch = [x.to(device=get_current_device()) for x in test_batch]
         processed_signal, processed_signal_length = asr_model.preprocessor(
             input_signal=test_batch[0], length=test_batch[1]
         )
@@ -201,7 +201,7 @@ def evaluate(asr_model, asr_onnx, labels_map, wer, qat):
 
         for test_batch in asr_model.test_dataloader():
             if can_gpu:
-                test_batch = [x.cuda() for x in test_batch]
+                test_batch = [x.to(device=get_current_device()) for x in test_batch]
             processed_signal, processed_signal_length = asr_model.preprocessor(
                 input_signal=test_batch[0], length=test_batch[1]
             )

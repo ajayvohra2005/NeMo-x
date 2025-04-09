@@ -22,6 +22,7 @@ from megatron.core.inference.model_inference_wrappers.abstract_model_inference_w
 from megatron.core.inference.model_inference_wrappers.inference_wrapper_config import InferenceWrapperConfig
 from megatron.core.inference_params import InferenceParams
 from torch.utils.data import default_collate
+from nemo.utils import get_current_device
 
 
 class LlavaInferenceWrapper(AbstractModelInferenceWrapper):
@@ -45,7 +46,7 @@ class LlavaInferenceWrapper(AbstractModelInferenceWrapper):
         image_dict: List[Dict] = None,
     ):
         # pylint: disable=C0115,C0116
-        media = default_collate(image_dict)['pixel_values'].cuda(non_blocking=True)
+        media = default_collate(image_dict)['pixel_values'].to(get_current_device())
         media = media.reshape(media.size(0), 3, 336, 336)
 
         batch_size = prompts_tokens.size(0)

@@ -14,6 +14,7 @@
 from functools import partial
 from typing import Any, Optional
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import Trainer
 from omegaconf import DictConfig
@@ -32,7 +33,7 @@ from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModel
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.common import Serialization
 from nemo.core.classes.mixins.adapter_mixins import AdapterModuleMixin
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 try:
     from apex import amp
@@ -59,6 +60,7 @@ except (ImportError, ModuleNotFoundError):
     logging.warning("Megatron num_microbatches_calculator not found, using Apex version.")
     from apex.transformer.pipeline_parallel.utils import get_num_microbatches
 
+xm = get_xla_model()
 
 def disabled_train(self, mode=True):
     """Overwrite model.train with this function to make sure train/eval mode
@@ -106,7 +108,7 @@ class DreamBooth(torch.nn.Module, Serialization):
 
         self.model_type = None
         self.rng = torch.Generator(
-            device=torch.cuda.current_device(),
+            device=get_current_device(),
         )
 
         self.use_cached_latents = self.cfg.use_cached_latents
@@ -296,7 +298,7 @@ class MegatronDreamBooth(NLPAdapterModelMixin, MegatronBaseModel):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0, device=torch.cuda.current_device())
+                loss_mean = torch.tensor(0.0, device=get_current_device())
 
         return loss_mean, loss_dict
 
@@ -395,7 +397,7 @@ class MegatronDreamBooth(NLPAdapterModelMixin, MegatronBaseModel):
                 self.autocast_dtype in (torch.half, torch.bfloat16),
                 dtype=self.autocast_dtype,
             ):
-                images = images.cuda(non_blocking=True)
+                images = images.to(get_current_device())
 
                 cond = self.model.text_encoder([t[0] for t in prompts])
                 if self.cfg.with_prior_preservation:
@@ -407,7 +409,7 @@ class MegatronDreamBooth(NLPAdapterModelMixin, MegatronBaseModel):
         def fwd_output_and_loss_func(dataloader_iter, model):
             batch, _, _ = next(dataloader_iter)
             batch = process_batch(batch)
-            batch = [x.cuda(non_blocking=True) for x in batch]
+            batch = [x.to(get_current_device()) for x in batch]
             loss = model(batch)
 
             def dummy(output_tensor):
@@ -446,9 +448,14 @@ class MegatronDreamBooth(NLPAdapterModelMixin, MegatronBaseModel):
             num_parameters_on_device = sum([p.nelement() for p in self.model.parameters()])
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda(non_blocking=True)
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
 
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                        groups=parallel_state.get_model_parallel_groups(), 
+                        pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

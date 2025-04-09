@@ -45,7 +45,7 @@ def main(cfg) -> None:
         checkpoint_path=checkpoint_path, trainer=trainer, cfg=cfg.model
     )
     model.eval()
-    model = model.cuda()
+    model = model.to(device=get_current_device())
     trainer.test(model)
 
 

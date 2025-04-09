@@ -17,6 +17,7 @@ import os
 from functools import partial
 from typing import Any, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig
@@ -43,7 +44,7 @@ from nemo.collections.nlp.modules.common.text_generation_utils import (
 from nemo.collections.nlp.modules.common.transformer.text_generation import LengthParam, SamplingParam
 from nemo.collections.nlp.parts.nlp_overrides import GradScaler, NLPSaveRestoreConnector
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import AppState, logging
+from nemo.utils import AppState, logging, get_xla_model
 from nemo.utils.decorators import deprecated_warning
 
 try:
@@ -68,6 +69,7 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ['MegatronGPTPromptLearningModel']
 
+xm = get_xla_model()
 
 class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
     """
@@ -335,7 +337,7 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
             loss_mean = loss_tensor.mean()
         else:
             # we're not on the last pipeline stage so no losses
-            loss_mean = torch.tensor(0.0).cuda()
+            loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
         return loss_mean
 
@@ -390,7 +392,7 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
             input_lenghts = torch.argmax(loss_mask, 1, keepdim=True)
 
             res = megatron_gpt_generate(
-                self.cuda(),
+                self.to(device=get_current_device()),
                 (
                     torch.cat(
                         (
@@ -464,7 +466,7 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
             # only the last pipeline parallel stages return loss
             averaged_loss = torch.stack([i['loss'] for i in self.validation_step_outputs]).mean()
         else:
-            averaged_loss = torch.tensor(0.0).cuda()
+            averaged_loss = torch.tensor(0.0).to(device=get_current_device())
 
         # we can only log on one rank if it is rank zero so we broadcast from last rank
         torch.distributed.broadcast(averaged_loss, get_last_rank())
@@ -484,7 +486,8 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
             torch.distributed.all_gather_object(
                 gather_results,
                 [(pred, label) for (pred, label) in zip(all_preds, all_labels)],
-                group=parallel_state.get_data_parallel_group(),
+                group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
             )
 
             # Deduplicate sentences that may have been distributed across multiple data parallel ranks.
@@ -502,7 +505,7 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
                 val_metric = list(val_metric_dict.items())[0][1]
                 metric_name = list(val_metric_dict.items())[0][0]
             else:
-                val_metric = torch.tensor(0.0).cuda()
+                val_metric = torch.tensor(0.0).to(device=get_current_device())
                 metric_name = ''
 
             self.log(f'val_{metric_name}', val_metric, prog_bar=True, rank_zero_only=True, batch_size=1)
@@ -671,7 +674,7 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
     def get_forward_output_and_loss_func(self):
         def fwd_output_and_loss_func(dataloader_iter, model):
             batch, _, _ = next(dataloader_iter)
-            batch = [x.cuda(non_blocking=True) for x in batch]
+            batch = [x.to(get_current_device()) for x in batch]
             input_ids, labels, loss_mask, position_ids, attention_mask, taskname_ids = batch
             output_tensor = model(input_ids, position_ids, attention_mask, taskname_ids, labels, inference=False)
 
@@ -704,10 +707,10 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
                 inference_max_sequence_len,
             ) = batch
 
-            tokens = tokens.cuda()
-            attention_mask = attention_mask.cuda()
-            position_ids = position_ids.cuda()
-            task_ids = task_ids.cuda()
+            tokens = tokens.to(device=get_current_device())
+            attention_mask = attention_mask.to(device=get_current_device())
+            position_ids = position_ids.to(device=get_current_device())
+            task_ids = task_ids.to(device=get_current_device())
 
             if self.frozen_model.mcore_gpt:
                 # if first step, then clear KV cache, otherwise reuse inference_paarms
@@ -786,7 +789,7 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
 
         # Call same generate code as in MegatronGPT
         return megatron_gpt_generate(
-            self.cuda(), processed_inputs, self.tokenizer, length_params, sampling_params, task_ids=task_ids
+            self.to(device=get_current_device()), processed_inputs, self.tokenizer, length_params, sampling_params, task_ids=task_ids
         )
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: Optional[int] = None) -> Any:
@@ -817,7 +820,7 @@ class MegatronGPTPromptLearningModel(MegatronBasePromptLearningModel):
 
             # Call same generate code as in MegatronGPT
             return megatron_gpt_generate(
-                self.cuda(), processed_inputs, self.tokenizer, length_params, sampling_params, task_ids=task_ids
+                self.to(device=get_current_device()), processed_inputs, self.tokenizer, length_params, sampling_params, task_ids=task_ids
             )
 
     @classmethod

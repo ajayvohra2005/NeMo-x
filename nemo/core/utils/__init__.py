@@ -13,3 +13,4 @@
 # limitations under the License.
 
 from nemo.core.utils import numba_utils, process_launcher
+from nemo.utils import device_utils

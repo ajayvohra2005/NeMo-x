@@ -26,6 +26,7 @@ from typing import Any, Iterator, Literal, Optional, Set, TypeVar
 
 import lightning.pytorch as pl
 import megatron.core.num_microbatches_calculator
+from nemo.utils import get_current_device
 import pytest
 import torch
 import torch.distributed
@@ -218,7 +219,7 @@ def test_golden_values(use_te: bool = True):
         tokenizer = get_nmt_tokenizer(
             "byte-level",
         )
-        raw_megatron_model = hyena_config.configure_model(tokenizer).eval().cuda()
+        raw_megatron_model = hyena_config.configure_model(tokenizer).eval().to(device=get_current_device())
         device = raw_megatron_model.parameters().__next__().device
         load_weights_sharded_inplace_nemo2_to_mcore(raw_megatron_model, cfg_path, {}, "zarr")
         """

@@ -22,6 +22,7 @@ Requires HF transformers updated to support Siglip Models
 import os
 from argparse import ArgumentParser
 
+from nemo.utils import get_current_device
 import torch
 from omegaconf import OmegaConf
 from transformers import AutoModel, AutoProcessor
@@ -379,17 +380,17 @@ def convert(args):
     texts = ["a photo of 2 cats", "a photo of 2 dogs"]
     inputs = hf_processor(text=texts, images=image, padding="max_length", return_tensors="pt")
 
-    tokens = inputs["input_ids"].cuda()
-    text_model = model.model.text_encoder.cuda()
-    hf_text_model = hf_model.text_model.cuda()
+    tokens = inputs["input_ids"].to(device=get_current_device())
+    text_model = model.model.text_encoder.to(device=get_current_device())
+    hf_text_model = hf_model.text_model.to(device=get_current_device())
     text_model_output = text_model(tokens)
     hf_text_model_output = hf_text_model(tokens).pooler_output
     assert torch.allclose(text_model_output, hf_text_model_output, atol=0.01)
     logging.info(f'! Text model results matched.')
 
-    pixels = inputs["pixel_values"].cuda()
-    vision_model = model.model.vision_encoder.cuda()
-    hf_vision_model = hf_model.vision_model.cuda()
+    pixels = inputs["pixel_values"].to(device=get_current_device())
+    vision_model = model.model.vision_encoder.to(device=get_current_device())
+    hf_vision_model = hf_model.vision_model.to(device=get_current_device())
     vision_model_output = vision_model(pixels)
     hf_vision_model_output = hf_vision_model(pixels).pooler_output
     assert torch.allclose(vision_model_output, hf_vision_model_output, atol=0.01)

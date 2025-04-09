@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Callable, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from megatron.core import parallel_state, tensor_parallel
 from megatron.core.fusions.fused_bias_dropout import get_bias_dropout_add
@@ -653,7 +654,7 @@ def logit_softcapping(logits: torch.Tensor, scale: Optional[float]):
 
 def get_swa(seq_q, seq_kv, w):
     """Create the equivalent attention mask fro SWA in [seq_q, seq_kv] shape"""
-    m = torch.ones(seq_q, seq_kv, dtype=torch.bool, device="cuda")
+    m = torch.ones(seq_q, seq_kv, dtype=torch.bool, device=get_current_device())
     mu = torch.triu(m, diagonal=seq_kv - seq_q - w[0])
     ml = torch.tril(mu, diagonal=seq_kv - seq_q + w[1])
     ml = ~ml

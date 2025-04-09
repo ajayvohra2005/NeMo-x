@@ -29,6 +29,9 @@ import torch
 from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 from nemo.core.classes import Dataset
 from nemo.utils import AppState
+from nemo.utils import get_current_device, get_xla_model
+
+xm = get_xla_model()
 
 logger = logging.getLogger(__name__)
 
@@ -699,9 +702,17 @@ def _get_samples_mapping(
 
     if sanity_check_dist_workers:
         torch.distributed.barrier()
-        counts = torch.cuda.LongTensor([1])
-        torch.distributed.all_reduce(counts, group=parallel_state.get_data_parallel_group(with_context_parallel=True))
-        torch.distributed.all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
+        counts = torch.LongTensor([1]).to(device=get_current_device())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [counts], 
+                          groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 
+                          pin_layout=False)
+            xm.all_reduce(xm.REDUCE_SUM, [counts], 
+                          groups=parallel_state.get_pipeline_model_parallel_groups(), 
+                          pin_layout=False)
+        else:
+            torch.distributed.all_reduce(counts, group=parallel_state.get_data_parallel_group(with_context_parallel=True))
+            torch.distributed.all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
         assert counts[0].item() == (
             torch.distributed.get_world_size()
             // torch.distributed.get_world_size(group=parallel_state.get_tensor_model_parallel_group())

@@ -32,7 +32,7 @@ from nemo.collections.llm.utils import Config
 from nemo.lightning import OptimizerModule, io
 from nemo.lightning.io.state import TransformFns
 from nemo.lightning.pytorch.utils import dtype_from_hf
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device
 from nemo.utils.import_utils import safe_import
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ def nv_embedding_data_step(dataloder_iter) -> Dict[str, torch.Tensor]:
         required_keys.add("input_ids")
         required_keys.add("position_ids")
 
-    _batch = {key: val.cuda(non_blocking=True) if key in required_keys else None for key, val in _batch.items()}
+    _batch = {key: val.to(get_current_device()) if key in required_keys else None for key, val in _batch.items()}
     # slice batch along sequence dimension for context parallelism
     output = GPTBase.get_batch_on_this_context_parallel_rank(_batch)
 

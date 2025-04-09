@@ -16,6 +16,7 @@
 from pathlib import Path
 from typing import Union
 
+from nemo.utils import get_current_device
 import pytest
 import torch.cuda
 from examples.asr.transcribe_speech import TranscriptionConfig
@@ -61,8 +62,9 @@ def get_rnnt_alignments(
     model: EncDecRNNTBPEModel,
     loop_labels: bool = True,
     use_cuda_graph_decoder=False,
-    device="cuda",
+    device=None
 ) -> list[Hypothesis]:
+    device = device if device else get_current_device()
     cfg = OmegaConf.structured(TranscriptionConfig())
     cfg.rnnt_decoding.confidence_cfg.preserve_frame_confidence = True
     cfg.rnnt_decoding.preserve_alignments = True

@@ -22,6 +22,7 @@ from dataclasses import fields
 from functools import partial
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.accelerators import CPUAccelerator
 from lightning.pytorch.trainer.trainer import Trainer
@@ -65,7 +66,7 @@ from nemo.collections.nlp.parts.utils_funcs import activation_to_func, get_last_
 from nemo.core.classes import Exportable
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.neural_types import ChannelType, NeuralType
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 from nemo.utils.import_utils import safe_import, safe_import_from
 
 try:
@@ -104,6 +105,7 @@ transformer_engine, HAVE_TE = safe_import("transformer_engine")
 te_module, HAVE_TE_MODULE = safe_import_from("transformer_engine.pytorch", "module")
 HAVE_TE = HAVE_TE and HAVE_TE_MODULE
 
+xm = get_xla_model()
 
 class MegatronRetroModel(MegatronGPTModel):
     """
@@ -282,7 +284,7 @@ class MegatronRetroModel(MegatronGPTModel):
                     required_keys.update(('labels', 'loss_mask'))
             if self.get_attention_mask_from_fusion:
                 required_keys.remove('attention_mask')
-            batch = {key: val.cuda(non_blocking=True) if key in required_keys else None for key, val in batch.items()}
+            batch = {key: val.to(get_current_device()) if key in required_keys else None for key, val in batch.items()}
 
             # reshape context_input_ids and context_position_ids for RETRO from [bs, l*k, r] => [bs*l*k, r]
             context_input_ids = batch['context_input_ids']
@@ -330,13 +332,18 @@ class MegatronRetroModel(MegatronGPTModel):
                     loss_sum_and_ub_size_all_gpu = torch.cat(
                         [
                             loss_sum_for_ub.clone().detach().view(1),
-                            torch.tensor([num_valid_tokens_in_ub]).cuda().clone().detach(),
+                            torch.tensor([num_valid_tokens_in_ub]).to(device=get_current_device()).clone().detach(),
                         ]
                     )
                     # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
-                    torch.distributed.all_reduce(
-                        loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
-                    )
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
+                                groups=parallel_state.get_data_parallel_groups(), 
+                                pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(
+                            loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
+                        )
                     return loss_for_ub, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}
                 else:
                     reduced_loss = average_losses_across_data_parallel_group([loss_for_ub])
@@ -351,7 +358,7 @@ class MegatronRetroModel(MegatronGPTModel):
             batch = next(dataloader_iter)
             extra_arg = {}
             if len(batch) == 6:
-                batch = [x.cuda() for x in batch]
+                batch = [x.to(device=get_current_device()) for x in batch]
                 tokens, attention_mask, position_ids, context_input_ids, context_mask, context_position_ids = batch
                 attention_mask = attention_mask[0:1]
             else:
@@ -366,10 +373,10 @@ class MegatronRetroModel(MegatronGPTModel):
                     inference_max_sequence_len,
                 ) = batch
                 # Transfer needed data to GPU
-                tokens = tokens.cuda()
-                position_ids = position_ids.cuda()
-                context_input_ids = context_input_ids.cuda()
-                context_position_ids = context_position_ids.cuda()
+                tokens = tokens.to(device=get_current_device())
+                position_ids = position_ids.to(device=get_current_device())
+                context_input_ids = context_input_ids.to(device=get_current_device())
+                context_position_ids = context_position_ids.to(device=get_current_device())
                 context_mask = None
                 if self.mcore_gpt:
                     # No caching key, value because currently it's not supported for mcore RETRO in NeMo
@@ -585,7 +592,7 @@ class MegatronRetroModel(MegatronGPTModel):
                 loss_sum = (
                     torch.vstack(loss_sum_tensors_list).sum(axis=0)
                     if len(loss_sum_tensors_list) > 0
-                    else torch.tensor([0.0, 0.0]).cuda()
+                    else torch.tensor([0.0, 0.0]).to(device=get_current_device())
                 )
                 return loss_sum
         else:
@@ -593,7 +600,7 @@ class MegatronRetroModel(MegatronGPTModel):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0).cuda()
+                loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
         return loss_mean
 

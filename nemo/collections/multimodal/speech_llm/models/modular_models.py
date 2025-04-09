@@ -19,6 +19,7 @@ from functools import partial
 from typing import List, Optional, Union
 
 import hydra
+from nemo.utils import get_current_device
 import sacrebleu
 import torch
 from hydra.utils import get_class
@@ -58,7 +59,7 @@ from nemo.core.classes import ModelPT
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.classes.mixins import adapter_mixins
 from nemo.core.neural_types import AudioSignal, LabelsType, LengthsType, MaskType, NeuralType
-from nemo.utils import AppState, logging, model_utils
+from nemo.utils import AppState, logging, model_utils, get_xla_model
 from nemo.utils.model_utils import inject_model_parallel_rank
 
 try:
@@ -87,7 +88,7 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ["ModularAudioGPTModel", "CrossAttendModularAudioGPTModel"]
 
-
+xm = get_xla_model()
 default_inference_config = {'tokens_to_generate': 30}
 
 
@@ -542,14 +543,14 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
                     loss_mean = (
                         torch.vstack(loss_sum_tensors_list).sum(axis=0)
                         if len(loss_sum_tensors_list) > 0
-                        else torch.tensor([0.0, 0.0]).cuda()
+                        else torch.tensor([0.0, 0.0]).to(device=get_current_device())
                     )
             else:
                 # we're not on the last pipeline stage so no losses
                 if forward_only:
                     loss_mean = []
                 else:
-                    loss_mean = torch.tensor(0.0).cuda()
+                    loss_mean = torch.tensor(0.0).to(device=get_current_device())
             batch_losses.append(loss_mean.unsqueeze(0))
 
         loss_mean = torch.cat(batch_losses).mean()
@@ -574,10 +575,10 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
                 set_inference_key_value_memory,
                 inference_max_sequence_len,
             ) = batch
-            tokens = tokens.cuda()
+            tokens = tokens.to(device=get_current_device())
 
             if attention_mask is not None:
-                attention_mask = attention_mask.cuda()
+                attention_mask = attention_mask.to(device=get_current_device())
                 attention_mask = attention_mask[0:1]
             if self.mcore_gpt:
                 # if first step, then clear KV cache, otherwise reuse inference_paarms
@@ -709,13 +710,18 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
                     loss_sum_and_ub_size_all_gpu = torch.cat(
                         [
                             loss_sum_for_ub.clone().detach().view(1),
-                            torch.tensor([num_valid_tokens_in_ub]).cuda().clone().detach(),
+                            torch.tensor([num_valid_tokens_in_ub]).to(device=get_current_device()).clone().detach(),
                         ]
                     )
                     # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
-                    torch.distributed.all_reduce(
-                        loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
-                    )
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
+                                    groups=parallel_state.get_data_parallel_groups(), 
+                                    pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(
+                            loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
+                        )
                     return loss_for_ub * cp_size, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}
                 else:
                     reduced_loss = average_losses_across_data_parallel_group([loss_for_ub])
@@ -1391,26 +1397,26 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
             elif "text_context_ids" in batch:
                 # Text mini-batch
                 inference_config['inputs'] = (
-                    batch['text_context_ids'].cuda(),
-                    batch['text_context_lens'].cuda(),
+                    batch['text_context_ids'].to(device=get_current_device()),
+                    batch['text_context_lens'].to(device=get_current_device()),
                 )
             elif 'num_audios' in batch:
                 # peft_eval.py
                 inference_config['inputs'] = (
-                    batch['contexts'].cuda(),
-                    batch['context_lengths'].cuda(),
-                    batch['audio_signal'].cuda(),
-                    batch['audio_signal_length'].cuda(),
-                    batch['num_audios'].cuda(),
+                    batch['contexts'].to(device=get_current_device()),
+                    batch['context_lengths'].to(device=get_current_device()),
+                    batch['audio_signal'].to(device=get_current_device()),
+                    batch['audio_signal_length'].to(device=get_current_device()),
+                    batch['num_audios'].to(device=get_current_device()),
                     batch['context_start_idx'],
                 )
             else:
                 # peft_eval.py
                 inference_config['inputs'] = (
-                    batch['contexts'].cuda(),
-                    batch['context_lengths'].cuda(),
-                    batch['audio_signal'].cuda(),
-                    batch['audio_signal_length'].cuda(),
+                    batch['contexts'].to(device=get_current_device()),
+                    batch['context_lengths'].to(device=get_current_device()),
+                    batch['audio_signal'].to(device=get_current_device()),
+                    batch['audio_signal_length'].to(device=get_current_device()),
                 )
             response = generate(self, **inference_config)
 
@@ -1425,7 +1431,7 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
 
         # add audio offsets to context lengths for properly decoding only the response
         if 'context_lengths' in batch:
-            batch['context_lengths'] = batch['context_lengths'].cuda() + response['audio_feat_lens']
+            batch['context_lengths'] = batch['context_lengths'].to(device=get_current_device()) + response['audio_feat_lens']
 
         return response
 
@@ -1454,9 +1460,9 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
                     # Compute the avg loss by total_loss across all samples / total number of samples
                     total_loss_and_total_samples = torch.vstack(loss_vals).sum(axis=0)
                     avg_loss = total_loss_and_total_samples[0] / total_loss_and_total_samples[1]
-                    loss = avg_loss.type(torch.float32).cuda()
+                    loss = avg_loss.type(torch.float32).to(device=get_current_device())
             else:
-                loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+                loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())
 
             # we can only log on one rank if it is rank zero so we broadcast from last rank
             torch.distributed.broadcast(loss, get_last_rank())
@@ -1476,7 +1482,8 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
                     {'preds': x['preds'], 'labels': x['labels'], 'inputs': x['inputs'], 'metadata': x['metadata']}
                     for x in output
                 ],
-                group=parallel_state.get_data_parallel_group(),
+                group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
             )
 
             # Remove duplicate examples due to distributed sampler.
@@ -1733,13 +1740,13 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
             self.model = self.trainer.strategy._setup_model(self.model)
             # Move the CPU-initialized model (with `use_cpu_initialization=True`) to GPU, which is to avoid
             # out-of-memory carash before sharding. In case of GPU-initialized model, this is no-op.
-            self.model = self.model.cuda(torch.cuda.current_device())
+            self.model = self.model.cuda(get_current_device())
 
             # Shard perception module
             frozen_submodule_names, frozen_submodules = find_frozen_submodules(self.perception)
             self.trainer.strategy.kwargs['ignored_states'].extend(frozen_submodules)
             self.perception = self.trainer.strategy._setup_model(self.perception)
-            self.perception = self.perception.cuda(torch.cuda.current_device())
+            self.perception = self.perception.cuda(get_current_device())
 
     def oomptimizer_schema(self, schema: str = "audio") -> dict:
         """
@@ -1884,4 +1891,4 @@ class CrossAttendModularAudioGPTModel(ModularAudioGPTModel):
 
         if self.use_fsdp:
             self.perception_cross_attn = self.trainer.strategy._setup_model(self.perception_cross_attn)
-            self.perception_cross_attn = self.perception_cross_attn.cuda(torch.cuda.current_device())
+            self.perception_cross_attn = self.perception_cross_attn.cuda(get_current_device())

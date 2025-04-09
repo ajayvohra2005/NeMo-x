@@ -17,6 +17,7 @@ import warnings
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -48,10 +49,10 @@ def dit_data_step(module, dataloader_iter):
     """DiT data batch preparation."""
     batch = next(dataloader_iter)[0]
     batch = get_batch_on_this_cp_rank(batch)
-    batch = {k: v.to(device='cuda', non_blocking=True) if torch.is_tensor(v) else v for k, v in batch.items()}
+    batch = {k: v.to(device=get_current_device(), non_blocking=True) if torch.is_tensor(v) else v for k, v in batch.items()}
 
     cu_seqlens = batch['seq_len_q'].cumsum(dim=0).to(torch.int32)
-    zero = torch.zeros(1, dtype=torch.int32, device="cuda")
+    zero = torch.zeros(1, dtype=torch.int32, device=get_current_device())
     cu_seqlens = torch.cat((zero, cu_seqlens))
 
     cu_seqlens_kv = batch['seq_len_kv'].cumsum(dim=0).to(torch.int32)
@@ -337,7 +338,7 @@ class DiTModel(GPTModel):
                 warnings.warn('vae_path not specified skipping validation')
                 return None
             self.vae = self.config.configure_vae()
-        self.vae.to('cuda')
+        self.vae.to(device=get_current_device())
 
     def on_validation_end(self):
         """Move video tokenizer to CPU after validation."""
@@ -440,12 +441,12 @@ class DummyLossReduction(MegatronLossReduction):
     def forward(
         self, batch: Dict[str, torch.Tensor], forward_out: torch.Tensor
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
-        return torch.tensor(0.0, device=torch.cuda.current_device()), {
-            "avg": torch.tensor(0.0, device=torch.cuda.current_device())
+        return torch.tensor(0.0, device=get_current_device()), {
+            "avg": torch.tensor(0.0, device=get_current_device())
         }
 
     def reduce(self, losses_reduced_per_micro_batch) -> torch.Tensor:
-        return torch.tensor(0.0, device=torch.cuda.current_device())
+        return torch.tensor(0.0, device=get_current_device())
 
 
 def dynamic_import(full_path):

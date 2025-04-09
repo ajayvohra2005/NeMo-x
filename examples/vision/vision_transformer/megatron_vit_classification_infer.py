@@ -132,7 +132,7 @@ def main(cfg) -> None:
     ):
         class_names = []
         for tokens in test_loader:
-            logits = model(tokens.cuda())
+            logits = model(tokens.to(device=get_current_device()))
             class_indices = torch.argmax(logits, -1)
             class_names += [imagenet_classnames[x] for x in class_indices]
 

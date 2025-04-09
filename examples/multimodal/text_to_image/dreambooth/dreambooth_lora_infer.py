@@ -62,7 +62,7 @@ def main(cfg):
     model.load_adapters(cfg.model.peft.restore_from_path, peft_cfg_cls(model_cfg))
     rng = torch.Generator().manual_seed(cfg.infer.seed)
 
-    model = model.model.cuda().eval()
+    model = model.model.to(device=get_current_device()).eval()
     pipeline(model, cfg, rng=rng)
 
 

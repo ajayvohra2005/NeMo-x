@@ -28,6 +28,7 @@ from nemo.collections.llm.bert.model.base import get_batch_on_this_context_paral
 from nemo.collections.llm.bert.model.bert import HuggingFaceBertImporter
 from nemo.lightning import io
 from nemo.lightning.pytorch.optim import OptimizerModule
+from nemo.utils import get_current_device
 
 
 def bert_embedding_data_step(dataloder_iter) -> Dict[str, torch.Tensor]:
@@ -47,7 +48,7 @@ def bert_embedding_data_step(dataloder_iter) -> Dict[str, torch.Tensor]:
     if parallel_state.is_pipeline_first_stage():
         required_keys.add("input_ids")
 
-    _batch = {key: val.cuda(non_blocking=True) if key in required_keys else None for key, val in _batch.items()}
+    _batch = {key: val.to(get_current_device()) if key in required_keys else None for key, val in _batch.items()}
     # slice batch along sequence dimension for context parallelism
     output = get_batch_on_this_context_parallel_rank(_batch)
 

@@ -21,6 +21,7 @@ from collections.abc import Iterable
 from functools import partial
 from typing import Callable, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -307,7 +308,7 @@ def megatron_neva_generate(model, prompt_dict_list, length_params, sampling_para
         response["clean_response"] = clean_response
         final_response.append(response)
 
-        if torch.cuda.current_device() == 0:
+        if get_current_device() == 0:
             print(f"------------- PROMPT {idx} of {len(prompt_dict_list)} ------------ ")
             print(clean_text)
             print()
@@ -366,7 +367,7 @@ def get_computeprob_response(tokenizer, response, inputs):
 def get_batch(model, tokenizer, context_tokens):
     """Generate batch from context tokens."""
     # Move to GPU.
-    tokens = context_tokens.contiguous().cuda()
+    tokens = context_tokens.contiguous().to(device=get_current_device())
     # Get the attention mask and postition ids.
     attention_mask, _, position_ids = get_ltor_masks_and_position_ids(
         tokens,
@@ -506,9 +507,9 @@ def send_generate_info(
 
     # send end strings
     string_tensor = torch.as_tensor(
-        np.frombuffer(pickle.dumps(end_strings), dtype=np.int8), device=torch.cuda.current_device()
+        np.frombuffer(pickle.dumps(end_strings), dtype=np.int8), device=get_current_device()
     )
-    size = torch.as_tensor([string_tensor.size(0)], device=torch.cuda.current_device(), dtype=torch.int64)
+    size = torch.as_tensor([string_tensor.size(0)], device=get_current_device(), dtype=torch.int64)
     torch.distributed.broadcast(size, src, model_parallel_group)
     torch.distributed.broadcast(string_tensor, src, model_parallel_group)
 
@@ -519,7 +520,7 @@ def receive_generate_info():
     """
     model_parallel_group = parallel_state.get_model_parallel_group()
     src = get_model_parallel_src_rank()
-    input_info_tensor = torch.empty(12, dtype=torch.float32, device=torch.cuda.current_device())
+    input_info_tensor = torch.empty(12, dtype=torch.float32, device=get_current_device())
     torch.distributed.broadcast(input_info_tensor, src, model_parallel_group)
     batch_size = int(input_info_tensor[0].item())
     seq_len = int(input_info_tensor[1].item())
@@ -536,16 +537,16 @@ def receive_generate_info():
     if random_seed == -1:  # was converted to -1 before broadcast
         random_seed = None
 
-    context_length_tensor = torch.empty(batch_size, dtype=torch.int64, device=torch.cuda.current_device())
-    context_tokens_tensor = torch.empty(batch_size, seq_len, dtype=torch.int64, device=torch.cuda.current_device())
+    context_length_tensor = torch.empty(batch_size, dtype=torch.int64, device=get_current_device())
+    context_tokens_tensor = torch.empty(batch_size, seq_len, dtype=torch.int64, device=get_current_device())
     # Send variables to all ranks
     torch.distributed.broadcast(context_length_tensor, src, model_parallel_group)
     torch.distributed.broadcast(context_tokens_tensor, src, model_parallel_group)
 
-    array_size = torch.empty(1, dtype=torch.int64, device=torch.cuda.current_device())
+    array_size = torch.empty(1, dtype=torch.int64, device=get_current_device())
     torch.distributed.broadcast(array_size, src, model_parallel_group)
 
-    string_tensor = torch.empty(array_size[0], dtype=torch.int8, device=torch.cuda.current_device())
+    string_tensor = torch.empty(array_size[0], dtype=torch.int8, device=get_current_device())
     torch.distributed.broadcast(string_tensor, src, model_parallel_group)
     bytes = string_tensor.cpu().numpy().tobytes()
     end_strings = pickle.loads(bytes)
@@ -651,7 +652,7 @@ def synced_generate(
                 dtype = torch.float32
 
                 output_logits = torch.empty(
-                    tokens.size(0), context_length - 1, dtype=dtype, device=torch.device("cuda")
+                    tokens.size(0), context_length - 1, dtype=dtype, device=get_current_device()
                 )
                 torch.distributed.broadcast(output_logits, src, group)
 
@@ -663,7 +664,7 @@ def synced_generate(
                     context_length - 1,
                     model.padded_vocab_size,
                     dtype=dtype,
-                    device=torch.device("cuda"),
+                    device=get_current_device(),
                 )
                 torch.distributed.broadcast(full_logits, src, group)
     if tokens is not None:
@@ -783,13 +784,13 @@ def generate(
             # receive neighbors tensors to all ranks
             model_parallel_group = parallel_state.get_model_parallel_group()
             src = get_model_parallel_src_rank()
-            neighbors_tokens_tensor_shape = torch.empty(2, dtype=torch.float32, device=torch.cuda.current_device())
+            neighbors_tokens_tensor_shape = torch.empty(2, dtype=torch.float32, device=get_current_device())
             torch.distributed.broadcast(neighbors_tokens_tensor_shape, src, model_parallel_group)
             neighbors_tokens_tensor = torch.empty(
                 neighbors_tokens_tensor_shape[0],
                 neighbors_tokens_tensor_shape[1],
                 dtype=torch.int64,
-                device=torch.cuda.current_device(),
+                device=get_current_device(),
             )
             torch.distributed.broadcast(neighbors_tokens_tensor, src, model_parallel_group)
         else:
@@ -946,7 +947,7 @@ def sample_sequence_batch(
         counter = 0
 
         batch_size = context_tokens.size(0)
-        is_done = torch.zeros([batch_size]).byte().cuda()
+        is_done = torch.zeros([batch_size]).byte().to(device=get_current_device())
         tokens = context_tokens
         output_logits = None
         all_generated_indices = None  # used to track all generated indices
@@ -955,7 +956,7 @@ def sample_sequence_batch(
 
         maxlen = inference_strategy.clip_max_len(maxlen)
 
-        lengths = torch.ones([batch_size]).long().cuda() * maxlen
+        lengths = torch.ones([batch_size]).long().to(device=get_current_device()) * maxlen
 
         while context_length < maxlen:
             if image_list is not None:
@@ -1143,7 +1144,7 @@ def tab_sample_sequence_batch(
         counter = 0
 
         batch_size = context_tokens.size(0)
-        is_done = torch.zeros([batch_size]).byte().cuda()
+        is_done = torch.zeros([batch_size]).byte().to(device=get_current_device())
         tokens = context_tokens
         output_logits = None
 
@@ -1153,7 +1154,7 @@ def tab_sample_sequence_batch(
         if maxlen > model.cfg.encoder_seq_length:
             maxlen = model.cfg.encoder_seq_length
 
-        lengths = torch.ones([batch_size]).long().cuda() * maxlen
+        lengths = torch.ones([batch_size]).long().to(device=get_current_device()) * maxlen
 
         while context_length < maxlen:
             batch, tensor_shape = inference_strategy.prepare_batch_at_step(

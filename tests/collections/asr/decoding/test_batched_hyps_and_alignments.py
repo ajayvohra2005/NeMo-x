@@ -15,11 +15,13 @@
 from contextlib import contextmanager
 from typing import List
 
+from nemo.utils import get_xla_model, get_current_device
 import pytest
 import torch
 
 from nemo.collections.asr.parts.utils.rnnt_utils import BatchedAlignments, BatchedHyps, batched_hyps_to_hypotheses
 
+xm = get_xla_model()
 
 @contextmanager
 def avoid_sync_operations(device: torch.device):
@@ -34,8 +36,8 @@ def avoid_sync_operations(device: torch.device):
 
 DEVICES: List[torch.device] = [torch.device("cpu")]
 
-if torch.cuda.is_available():
-    DEVICES.append(torch.device("cuda"))
+if torch.cuda.is_available() or xm:
+    DEVICES.append(get_current_device())
 
 if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
     DEVICES.append(torch.device("mps"))

@@ -114,7 +114,7 @@ def nemo_deploy(argv):
                 LOGGER.error("Error message has occurred during deploy function. Error message: " + str(error))
                 return
 
-            torch.distributed.broadcast(torch.tensor([1], dtype=torch.long, device="cuda"), src=0)
+            torch.distributed.broadcast(torch.tensor([1], dtype=torch.long, device=None), src=0)
 
             LOGGER.info("Model serving will be stopped.")
             nm.stop()

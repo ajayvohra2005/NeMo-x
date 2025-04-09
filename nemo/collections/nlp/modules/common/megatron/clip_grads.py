@@ -18,7 +18,7 @@ import itertools
 import torch
 from torch import inf
 
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 from nemo.utils.model_utils import param_is_not_shared
 
 try:
@@ -52,6 +52,7 @@ except (ImportError, ModuleNotFoundError):
 
     HAVE_MEGATRON_CORE = False
 
+xm = get_xla_model()
 
 @torch.no_grad()
 def clip_grad_norm_fp32(parameters, max_norm, norm_type=2, use_fsdp=False):
@@ -118,9 +119,14 @@ def clip_grad_norm_fp32(parameters, max_norm, norm_type=2, use_fsdp=False):
 
         if not use_fsdp:
             # Take max across all model-parallel GPUs.
-            torch.distributed.all_reduce(
-                total_norm, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
-            )
+            if xm:
+                xm.all_reduce(xm.REDUCE_MAX, [total_norm], 
+                            groups=parallel_state.get_model_parallel_groups(), 
+                            pin_layout=False)
+            else:
+                torch.distributed.all_reduce(
+                    total_norm, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
+                )
         else:
             if len(sharded_grads_for_norm) > 0:
                 sharded_total_norm = max(grad.abs().max() for grad in sharded_grads_for_norm)
@@ -162,17 +168,27 @@ def clip_grad_norm_fp32(parameters, max_norm, norm_type=2, use_fsdp=False):
 
         if use_fsdp:
             # Sum norm of grad shards across data-parallel GPUs.
-            torch.distributed.all_reduce(
-                total_sharded_norm,
-                op=torch.distributed.ReduceOp.SUM,
-                group=parallel_state.get_data_parallel_group(with_context_parallel=True),
-            )
+            if xm:
+                xm.all_reduce(xm.REDUCE_SUM, [total_sharded_norm], 
+                            groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 
+                            pin_layout=False)
+            else:
+                torch.distributed.all_reduce(
+                    total_sharded_norm,
+                    op=torch.distributed.ReduceOp.SUM,
+                    group=parallel_state.get_data_parallel_group(with_context_parallel=True),
+                )
             total_norm += total_sharded_norm.squeeze()
 
         # Sum across all model-parallel GPUs.
-        torch.distributed.all_reduce(
-            total_norm, op=torch.distributed.ReduceOp.SUM, group=parallel_state.get_model_parallel_group()
-        )
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_norm], 
+                        groups=parallel_state.get_model_parallel_groups(), 
+                        pin_layout=False)
+        else:
+            torch.distributed.all_reduce(
+                total_norm, op=torch.distributed.ReduceOp.SUM, group=parallel_state.get_model_parallel_group()
+            )
         total_norm = total_norm ** (1.0 / norm_type)
 
     # Scale.
@@ -205,9 +221,14 @@ def count_zeros_fp32(parameters):
             total_num_zeros = num_zeros + total_num_zeros
 
     # Sum across all model-parallel GPUs.
-    torch.distributed.all_reduce(
-        total_num_zeros, op=torch.distributed.ReduceOp.SUM, group=parallel_state.get_model_parallel_group()
-    )
+    if xm:
+        xm.all_reduce(xm.REDUCE_SUM, [total_num_zeros], 
+                    groups=parallel_state.get_model_parallel_groups(), 
+                    pin_layout=False)
+    else:
+        torch.distributed.all_reduce(
+            total_num_zeros, op=torch.distributed.ReduceOp.SUM, group=parallel_state.get_model_parallel_group()
+        )
     total_num_zeros = total_num_zeros.item()
 
     return total_num_zeros

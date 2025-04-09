@@ -15,6 +15,7 @@
 from dataclasses import dataclass
 from typing import Callable
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 from megatron.core.models.common.vision_module.vision_module import VisionModule
@@ -66,7 +67,7 @@ def flux_controlnet_data_step(dataloader_iter):
     else:
         _batch = batch
 
-    _batch['loss_mask'] = torch.Tensor([1.0]).cuda(non_blocking=True)
+    _batch['loss_mask'] = torch.Tensor([1.0]).to(get_current_device())
     return _batch
 
 
@@ -416,12 +417,12 @@ class MegatronFluxControlNetModel(MegatronFluxModel):
             self.autocast_dtype = torch.float32
 
         if self.image_precached:
-            latents = batch['latents'].cuda(non_blocking=True)
-            control_latents = batch['control_latents'].cuda(non_blocking=True)
+            latents = batch['latents'].to(get_current_device())
+            control_latents = batch['control_latents'].to(get_current_device())
         else:
-            img = batch['images'].cuda(non_blocking=True)
+            img = batch['images'].to(get_current_device())
             latents = self.vae.encode(img).to(dtype=self.autocast_dtype)
-            hint = batch['hint'].cuda(non_blocking=True)
+            hint = batch['hint'].to(get_current_device())
             control_latents = self.vae.encode(hint).to(dtype=self.autocast_dtype)
 
         latent_image_ids = self._prepare_latent_image_ids(
@@ -477,9 +478,9 @@ class MegatronFluxControlNetModel(MegatronFluxModel):
         else:
             guidance_vec = None
         if self.text_precached:
-            prompt_embeds = batch['prompt_embeds'].cuda(non_blocking=True).transpose(0, 1)
-            pooled_prompt_embeds = batch['pooled_prompt_embeds'].cuda(non_blocking=True)
-            text_ids = batch['text_ids'].cuda(non_blocking=True)
+            prompt_embeds = batch['prompt_embeds'].to(get_current_device()).transpose(0, 1)
+            pooled_prompt_embeds = batch['pooled_prompt_embeds'].to(get_current_device())
+            text_ids = batch['text_ids'].to(get_current_device())
         else:
             txt = batch['txt']
             prompt_embeds, pooled_prompt_embeds, text_ids = self.encode_prompt(
@@ -537,10 +538,10 @@ class MegatronFluxControlNetModel(MegatronFluxModel):
         )
 
         if self.image_precached and self.text_precached:
-            latents = batch['latents'].cuda(non_blocking=True)
-            control_latents = batch['control_latents'].cuda(non_blocking=True)
-            prompt_embeds = batch['prompt_embeds'].cuda(non_blocking=True).transpose(0, 1)
-            pooled_prompt_embeds = batch['pooled_prompt_embeds'].cuda(non_blocking=True)
+            latents = batch['latents'].to(get_current_device())
+            control_latents = batch['control_latents'].to(get_current_device())
+            prompt_embeds = batch['prompt_embeds'].to(get_current_device()).transpose(0, 1)
+            pooled_prompt_embeds = batch['pooled_prompt_embeds'].to(get_current_device())
             log_images = pipe(
                 latents=latents,
                 control_image=control_latents,
@@ -556,8 +557,8 @@ class MegatronFluxControlNetModel(MegatronFluxModel):
             )
             log_images[0].save(f"{self.logger.log_dir}/step={self.global_step}_rank{self.local_rank}.png")
         else:
-            img = batch['images'].cuda(non_blocking=True)
-            hint = batch['hint'].cuda(non_blocking=True)
+            img = batch['images'].to(get_current_device())
+            hint = batch['hint'].to(get_current_device())
             text = batch['txt']
             log_images = pipe(
                 text,
@@ -574,4 +575,4 @@ class MegatronFluxControlNetModel(MegatronFluxModel):
             hint = pipe.torch_to_numpy(hint)
             hint = pipe.numpy_to_pil(hint)
             hint[0].save(f"{self.logger.log_dir}/step={self.global_step}_rank{self.local_rank}_control.png")
-        return torch.tensor([0.0], device=torch.cuda.current_device())
+        return torch.tensor([0.0], device=get_current_device())

@@ -17,6 +17,7 @@ import os
 import tempfile
 from unittest import TestCase
 
+from nemo.utils import get_current_device
 import pytest
 import torch
 from omegaconf import DictConfig
@@ -197,7 +198,7 @@ class TestEncDecSpeechLabelModel:
         lang_model = EncDecSpeakerLabelModel.from_pretrained(model_name)
         relative_filepath = "an4_speaker/an4/wav/an4_clstk/fash/an255-fash-b.wav"
         filename = os.path.join(test_data_dir, relative_filepath)
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        device = get_current_device()
 
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_manifest = os.path.join(tmpdir, 'manifest.json')

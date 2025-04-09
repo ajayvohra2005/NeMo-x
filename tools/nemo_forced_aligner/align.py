@@ -19,6 +19,7 @@ from dataclasses import dataclass, field, is_dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from nemo.utils.device_utils import get_current_device
 import torch
 from omegaconf import OmegaConf
 from utils.data_prep import (
@@ -222,13 +223,13 @@ def main(cfg: AlignmentConfig):
 
     # init devices
     if cfg.transcribe_device is None:
-        transcribe_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        transcribe_device = get_current_device()
     else:
         transcribe_device = torch.device(cfg.transcribe_device)
     logging.info(f"Device to be used for transcription step (`transcribe_device`) is {transcribe_device}")
 
     if cfg.viterbi_device is None:
-        viterbi_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        viterbi_device = get_current_device()
     else:
         viterbi_device = torch.device(cfg.viterbi_device)
     logging.info(f"Device to be used for viterbi step (`viterbi_device`) is {viterbi_device}")

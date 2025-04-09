@@ -16,6 +16,7 @@ import json
 import os
 import tempfile
 
+from nemo.utils import get_current_device
 import pytest
 import torch.cuda
 
@@ -51,7 +52,7 @@ class TestAudioToSpeechE2ESpkDiarDataset:
 
         batch_size = 4
         num_samples = 8
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        device = get_current_device()
         data_dict_list = []
         with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8') as f:
             with open(manifest_path, 'r', encoding='utf-8') as mfile:

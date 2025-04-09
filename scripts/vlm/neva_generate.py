@@ -21,6 +21,7 @@ Example:
 import argparse
 
 import requests
+from nemo.utils import get_current_device
 import torch
 from megatron.core.inference.common_inference_params import CommonInferenceParams
 from PIL import Image
@@ -126,16 +127,16 @@ def legacy_generate(model, processor, raw_image, text, num_tokens_to_generate):
     hf_tokenizer = processor.tokenizer
 
     inputs = processor(prompt, raw_image, return_tensors='pt').to(0, torch.float16)
-    input_ids = hf_tokenizer(prompt, return_tensors='pt')['input_ids'].cuda()
+    input_ids = hf_tokenizer(prompt, return_tensors='pt')['input_ids'].to(device=get_current_device())
     input_ids[input_ids == 32000] = -200
-    images = inputs['pixel_values'].cuda()
+    images = inputs['pixel_values'].to(device=get_current_device())
     images = images.reshape(images.size(0), 3, 336, 336)
 
     position_ids = (
         torch.arange(input_ids.size(1), dtype=torch.long, device=input_ids.device).unsqueeze(0).expand_as(input_ids)
     )
 
-    model = model.module.cuda()
+    model = model.module.to(device=get_current_device())
     model.eval()
     generated_ids = input_ids.clone()
 

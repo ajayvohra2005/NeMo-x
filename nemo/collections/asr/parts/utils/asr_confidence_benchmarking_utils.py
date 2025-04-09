@@ -81,7 +81,7 @@ def run_confidence_benchmark(
     is_rnnt = isinstance(model, EncDecRNNTModel)
 
     # transcribe audio
-    with torch.amp.autocast(model.device.type, enabled=use_amp):
+    with torch.autocast(model.device.type, enabled=use_amp):
         with torch.no_grad():
             transcriptions = model.transcribe(
                 audio=filepaths, batch_size=batch_size, return_hypotheses=True, num_workers=num_workers

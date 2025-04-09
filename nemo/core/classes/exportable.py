@@ -44,7 +44,7 @@ class Exportable(ABC):
     Usage:
         # exporting pre-trained model to ONNX file for deployment.
         model.eval()
-        model.to('cuda')  # or to('cpu') if you don't have GPU
+        model.to(device=get_current_device())
 
         model.export('mymodel.onnx', [options])  # all arguments apart from `output` are optional.
     """

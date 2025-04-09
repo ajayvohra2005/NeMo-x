@@ -96,7 +96,7 @@ def main():
     asr_model.preprocessor.featurizer.dither = 0.0
     asr_model.preprocessor.featurizer.pad_to = 0
     if can_gpu:
-        asr_model = asr_model.cuda()
+        asr_model = asr_model.to(device=get_current_device())
     asr_model.eval()
 
     if args.quant_disable_keyword:
@@ -192,7 +192,7 @@ def evaluate(asr_model, labels_map, wer):
     references = []
     for test_batch in asr_model.test_dataloader():
         if can_gpu:
-            test_batch = [x.cuda() for x in test_batch]
+            test_batch = [x.to(device=get_current_device()) for x in test_batch]
         with torch.amp.autocast(asr_model.device.type):
             log_probs, encoded_len, greedy_predictions = asr_model(
                 input_signal=test_batch[0], input_signal_length=test_batch[1]

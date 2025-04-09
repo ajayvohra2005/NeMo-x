@@ -15,6 +15,7 @@
 import signal
 import sys
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.callbacks import Callback
 
@@ -40,7 +41,7 @@ class PreemptionCallback(Callback):
 
     @property
     def interrupted(self):
-        interrupted = torch.tensor(self._interrupted, device=torch.cuda.current_device(), dtype=torch.int32)
+        interrupted = torch.tensor(self._interrupted, device=get_current_device(), dtype=torch.int32)
         torch.distributed.broadcast(interrupted, 0)
         interrupted = bool(interrupted.item())
         return interrupted

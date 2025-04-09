@@ -14,6 +14,7 @@
 
 from typing import List, Optional, Tuple
 
+from nemo.utils import get_current_device
 import torch
 
 import nemo.collections.nlp.modules.common.text_generation_strategy as text_generation_strategy
@@ -113,9 +114,9 @@ class AudioToTextGenerationStrategy(text_generation_strategy.GPTModelTextGenerat
 
         """Prepare batch for each of the inference steps"""
         setkey_value_array = torch.tensor(
-            [set_inference_key_value_memory] * micro_batch_size, device=torch.cuda.current_device()
+            [set_inference_key_value_memory] * micro_batch_size, device=get_current_device()
         )
-        len_array = torch.tensor([maxlen] * micro_batch_size, device=torch.cuda.current_device())
+        len_array = torch.tensor([maxlen] * micro_batch_size, device=get_current_device())
 
         batch = [tokens2use, embeddings2use, self.attention_mask, positions2use, setkey_value_array, len_array]
         tensor_shape = [tokens2use.shape[1], micro_batch_size, self.model.cfg.hidden_size]
@@ -263,9 +264,9 @@ class CrossAttendAudioToTextGenerationStrategy(AudioToTextGenerationStrategy):
 
         """Prepare batch for each of the inference steps"""
         setkey_value_array = torch.tensor(
-            [set_inference_key_value_memory] * micro_batch_size, device=torch.cuda.current_device()
+            [set_inference_key_value_memory] * micro_batch_size, device=get_current_device()
         )
-        len_array = torch.tensor([maxlen] * micro_batch_size, device=torch.cuda.current_device())
+        len_array = torch.tensor([maxlen] * micro_batch_size, device=get_current_device())
 
         batch = [tokens2use, embeddings2use, self.attention_mask, positions2use, setkey_value_array, len_array]
         tensor_shape = [tokens2use.shape[1], micro_batch_size, self.model.cfg.hidden_size]

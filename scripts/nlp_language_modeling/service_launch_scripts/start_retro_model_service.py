@@ -14,6 +14,7 @@
 
 import os
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import Trainer
 from omegaconf.omegaconf import OmegaConf, open_dict
@@ -100,14 +101,14 @@ def main(cfg) -> None:
 
     # running text generation, use inference server
     if parallel_state.is_pipeline_first_stage() and parallel_state.get_tensor_model_parallel_rank() == 0:
-        server = MegatronServer(model.cuda(), inference_strategy=model.inference_strategy)
+        server = MegatronServer(model.to(device=get_current_device()), inference_strategy=model.inference_strategy)
         server.run("0.0.0.0", port=cfg.port)
 
     while True:
         choice = torch.cuda.LongTensor(1)
         torch.distributed.broadcast(choice, 0)
         if choice[0].item() == 0:
-            generate(model.cuda(), strategy=model.inference_strategy)
+            generate(model.to(device=get_current_device()), strategy=model.inference_strategy)
 
 
 if __name__ == '__main__':

@@ -15,6 +15,7 @@
 import collections
 from typing import List, Optional
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from lightning.pytorch import Trainer
@@ -202,7 +203,7 @@ class BERTQAModel(BaseQAModel):
         all_predictions = []
         all_nbest = []
         mode = self.training
-        device = "cuda" if isinstance(self.trainer.device_ids, list) else "cpu"
+        device = get_current_device() if isinstance(self.trainer.device_ids, list) else "cpu"
 
         try:
             # Switch model to evaluation mode

@@ -397,14 +397,14 @@ def main(cfg) -> None:
                     args=(cfg.share, cfg.username, cfg.password, cfg.port, cfg.web_port, loop),
                 )
                 thread.start()
-            server = MegatronServer(model.cuda())
+            server = MegatronServer(model.to(device=get_current_device()))
             server.run("0.0.0.0", port=cfg.port)
 
         while True:
             choice = torch.cuda.LongTensor(1)
             torch.distributed.broadcast(choice, 0)
             if choice[0].item() == 0:
-                generate(model.cuda())
+                generate(model.to(device=get_current_device()))
 
 
 if __name__ == '__main__':

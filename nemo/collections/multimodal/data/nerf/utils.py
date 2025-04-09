@@ -14,6 +14,7 @@
 
 from typing import Dict, Optional
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -61,7 +62,7 @@ def get_view_direction(thetas: torch.Tensor, phis: torch.Tensor, overhead: float
     return res
 
 
-def compute_look_at_vectors(centers: torch.Tensor, jitter_up: Optional[float] = None, device: torch.device = "cuda"):
+def compute_look_at_vectors(centers: torch.Tensor, jitter_up: Optional[float] = None, device: torch.device = None):
     """
     Compute the look-at vectors for camera poses.
 
@@ -76,6 +77,7 @@ def compute_look_at_vectors(centers: torch.Tensor, jitter_up: Optional[float] = 
             - up_vector: The up vectors of the cameras, shape [B, 3].
             - right_vector: The right vectors of the cameras, shape [B, 3].
     """
+    device = device if device else get_current_device()
     forward_vector = F.normalize(centers)
     up_vector = torch.FloatTensor([0, 1, 0]).to(device).unsqueeze(0).repeat(len(centers), 1)
     right_vector = F.normalize(torch.cross(forward_vector, up_vector, dim=-1))
@@ -121,7 +123,7 @@ def get_rays(
     width: int,
     num_samples: Optional[int] = None,
     error_map: Optional[torch.Tensor] = None,
-    device: torch.device = "cuda",
+    device: torch.device = None,
 ) -> Dict[str, torch.Tensor]:
     """
     Generates rays from camera poses and intrinsics.
@@ -143,6 +145,7 @@ def get_rays(
             - 'inds_coarse': Coarse indices of the rays, shape [B, N] (if error_map is not None)
     """
 
+    device = device if device else get_current_device()
     batch_size = poses.shape[0]
     fx, fy, cx, cy = intrinsics
 
@@ -189,7 +192,7 @@ def get_rays(
 
 
 def non_uniform_sampling(
-    error_map: torch.Tensor, batch_size: int, num_samples: int, height: int, width: int, device: torch.device = "cuda"
+    error_map: torch.Tensor, batch_size: int, num_samples: int, height: int, width: int, device: torch.device = None
 ) -> torch.Tensor:
     """
     Perform non-uniform sampling based on the provided error_map.
@@ -206,6 +209,7 @@ def non_uniform_sampling(
         A tensor containing the sampled indices.
     """
 
+    device = device if device else get_current_device()
     sampled_indices_coarse = torch.multinomial(error_map.to(device), num_samples, replacement=False)
     inds_x, inds_y = sampled_indices_coarse // 128, sampled_indices_coarse % 128
     sx, sy = height / 128, width / 128

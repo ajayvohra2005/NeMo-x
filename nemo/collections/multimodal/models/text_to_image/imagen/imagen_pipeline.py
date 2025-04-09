@@ -16,6 +16,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import Trainer
 from omegaconf.omegaconf import OmegaConf
@@ -104,7 +105,7 @@ class ImagenPipeline(Callable):
         model = model.model  # We do not need Megatron Instance for inference
         model.model.set_inference_mode(True)  # Used for adding the least noise for EDM inference for SR model.
         if eval_mode:
-            model.unet.cuda().eval()
+            model.unet.to(device=get_current_device()).eval()
         return model
 
     @staticmethod
@@ -123,7 +124,7 @@ class ImagenPipeline(Callable):
             )
             models = [mm.model for mm in megatron_models]
             for model in models:
-                model.cuda().eval()
+                model.to(device=get_current_device()).eval()
                 model.model.set_inference_mode(True)
             return models
         customized_models = cfg.customized_model

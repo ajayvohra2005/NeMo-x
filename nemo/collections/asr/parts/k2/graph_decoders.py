@@ -17,6 +17,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+from nemo.utils import get_current_device
 import torch
 from jiwer import wer as word_error_rate
 from omegaconf import DictConfig
@@ -392,10 +393,10 @@ class K2WfstDecoder(AbstractWFSTDecoder):
         tokenword_disambig_id: int = -1,
         lm_weight: float = 1.0,
         nbest_size: int = 1,
-        device: str = "cuda",
+        device: torch.device = None
     ):
         self._nbest_size = nbest_size
-        self._device = device
+        self._device = device if device else get_current_device()
         super().__init__(lm_fst, decoding_mode, beam_size, config, tokenword_disambig_id, lm_weight)
 
     def _set_decoder_config(self, config: Optional[GraphIntersectDenseConfig] = None):

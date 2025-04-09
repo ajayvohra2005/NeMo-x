@@ -17,6 +17,7 @@ import uuid
 from typing import Dict, List, Optional
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 from lightning.pytorch.utilities import model_summary
@@ -39,8 +40,8 @@ class SpeechLanguageModel(pl.LightningModule, io.IOMixin, io.ConnectorMixin, fn.
         self._set_model_guid()
         self._cfg = OmegaConf.create({})
         # Set device_id in AppState
-        if torch.cuda.is_available() and torch.cuda.current_device() is not None:
-            app_state.device_id = torch.cuda.current_device()
+        if torch.cuda.is_available() and get_current_device() is not None:
+            app_state.device_id = get_current_device()
 
         # Create list of lists for val and test outputs to support multiple dataloaders
         # Initialize an empty list as sometimes self._validation_dl can be None at this stage

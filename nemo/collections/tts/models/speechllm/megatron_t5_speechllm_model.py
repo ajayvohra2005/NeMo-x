@@ -22,6 +22,7 @@ from typing import Any, List
 
 import editdistance
 import imageio
+from nemo.utils import get_current_device
 import numpy as np
 import soundfile as sf
 import torch
@@ -51,7 +52,7 @@ from nemo.collections.tts.losses.aligner_loss import ForwardSumLoss
 from nemo.collections.tts.models import AudioCodecModel
 from nemo.collections.tts.models.speechllm.megatron_base_speechllm_prompt_model import MegatronBaseSpeechLM
 from nemo.collections.tts.parts.utils.helpers import plot_alignment_to_numpy_for_speechllm, plot_codec_to_numpy
-from nemo.utils import AppState, logging
+from nemo.utils import AppState, logging, get_xla_model
 
 try:
     from apex.transformer.pipeline_parallel.utils import get_micro_batch_size, get_num_microbatches
@@ -73,6 +74,8 @@ except (ImportError, ModuleNotFoundError):
 
     HAVE_MEGATRON_CORE = False
 
+
+xm = get_xla_model()
 
 import time
 
@@ -264,7 +267,7 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
         self.sample_rate = 24000
         if codecmodel_type == 'nemo_codec':
             codec_model = AudioCodecModel.restore_from(cfg.get('codecmodel_path'))
-            codec_model.to('cuda')
+            codec_model.to(device=get_current_device())
             codec_model.eval()
             self.sample_rate = 22050
         else:
@@ -326,10 +329,10 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
     def decode_wav_from_codec_model(self, codes):
         codec_model = self.additional_models['codec']
         if self.codecmodel_type == 'nemo_codec':
-            codec_len = torch.Tensor([codes.shape[1]]).long().cuda()
+            codec_len = torch.Tensor([codes.shape[1]]).long().to(device=get_current_device())
             if codec_len < 10:
                 # return a one-second silence
-                return torch.zeros(24000).cuda()
+                return torch.zeros(24000).to(device=get_current_device())
             wav, _ = codec_model.decode(tokens=codes.unsqueeze(0), tokens_len=codec_len)
             wav = wav[0]
         else:
@@ -582,7 +585,7 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
             loss_mean = loss_tensor.mean()
         else:
             # we're not on the last pipeline stage so no losses
-            loss_mean = torch.tensor(0.0).cuda()
+            loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
         return loss_mean
 
@@ -611,13 +614,13 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
             _batch = []
             for x in batch:
                 if isinstance(x, torch.Tensor):
-                    x = x.cuda(non_blocking=True)
+                    x = x.to(get_current_device())
                 elif isinstance(x, list):
                     if isinstance(x[0], torch.Tensor):
-                        x = [y.cuda(non_blocking=True) for y in x]
+                        x = [y.to(get_current_device()) for y in x]
                 _batch.append(x)
             batch = _batch
-            # batch = [x.cuda(non_blocking=True) if isinstance(x, torch.Tensor) else x for x in batch]
+            # batch = [x.to(get_current_device()) if isinstance(x, torch.Tensor) else x for x in batch]
             (
                 virtual_tokens,
                 context_and_question_tokens,
@@ -876,13 +879,13 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
             _batch = []
             for x in batch:
                 if isinstance(x, torch.Tensor):
-                    x = x.cuda(non_blocking=True)
+                    x = x.to(get_current_device())
                 elif isinstance(x, list):
                     if isinstance(x[0], torch.Tensor):
-                        x = [y.cuda(non_blocking=True) for y in x]
+                        x = [y.to(get_current_device()) for y in x]
                 _batch.append(x)
             batch = _batch
-            # batch = [x.cuda(non_blocking=True) if isinstance(x, torch.Tensor) else x for x in batch]
+            # batch = [x.to(get_current_device()) if isinstance(x, torch.Tensor) else x for x in batch]
             (
                 decoder_max_sequence_len,
                 encoder_max_sequence_len,
@@ -1426,7 +1429,7 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
                     logging.info(f'Validation speech_accuracy_{i}: {averaged_speech_accuracy}')
                     logging.info(f'Validation speech_loss_{i}: {averaged_speech_loss}')
             else:
-                averaged_loss = torch.tensor(0.0).cuda()
+                averaged_loss = torch.tensor(0.0).to(device=get_current_device())
 
             # we can only log on one rank if it is rank zero so we broadcast from last rank
             torch.distributed.broadcast(averaged_loss, get_last_rank())
@@ -1488,7 +1491,8 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
             torch.distributed.all_gather_object(
                 gather_results,
                 [(input, pred, label) for (input, pred, label) in zip(all_inputs, all_preds, all_labels)],
-                group=parallel_state.get_data_parallel_group(),
+                group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
             )
 
             # Deduplicate sentences that may have been distributed across multiple data parallel ranks.
@@ -1506,7 +1510,7 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
                 val_metric = list(val_metric_dict.items())[0][1]
                 metric_name = list(val_metric_dict.items())[0][0]
             else:
-                val_metric = torch.tensor(0.0).cuda()
+                val_metric = torch.tensor(0.0).to(device=get_current_device())
                 metric_name = ''
 
             self.log(f'val_{metric_name}', val_metric, prog_bar=True, rank_zero_only=True, batch_size=1)
@@ -2144,7 +2148,7 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
             for i in range(self.num_speech_codebooks):
                 ter_dict[i] = {'hypothesis': [], 'gt': []}
 
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            device = get_current_device()
 
             if 'nemo_sv_model' not in self.additional_models:
                 nemo_sv_model = nemo_asr.models.EncDecSpeakerLabelModel.from_pretrained(model_name='titanet_large')
@@ -2652,7 +2656,8 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
         torch.distributed.all_gather_object(
             gather_results,
             [(input, pred, label) for (input, pred, label) in zip(all_inputs, all_preds, all_labels)],
-            group=parallel_state.get_data_parallel_group(),
+            group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
         )
 
         # Deduplicate sentences that may have been distributed across multiple data parallel ranks.

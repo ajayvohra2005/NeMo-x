@@ -24,6 +24,7 @@ from glob import glob
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from nemo.utils import get_current_device
 import numpy as np
 import safetensors
 import tensorrt_llm
@@ -991,7 +992,7 @@ class TensorRTLLM(ITritonDeployable):
             if tensor_shape[0] is None:
                 return None
             if torch.distributed.get_rank() != pp_src_idx:
-                tensor = torch.empty(tensor_shape[0], dtype=storage_dtype).cuda()
+                tensor = torch.empty(tensor_shape[0], dtype=storage_dtype).to(device=get_current_device())
 
             torch.distributed.broadcast(tensor.contiguous(), pp_src_idx, group=pp_group)
             return tensor
@@ -1738,7 +1739,7 @@ class TensorRTLLM(ITritonDeployable):
         dtype = self.config['pretrained_config']['dtype']
         prompt_embeddings_table = prompt_embeddings_table.to(
             dtype=tensorrt_llm._utils.str_dtype_to_torch(dtype)
-        ).cuda()
+        ).to(device=get_current_device())
 
         if prompt_embeddings_table.size(dim=1) != self.config["pretrained_config"]["hidden_size"]:
             raise Exception(

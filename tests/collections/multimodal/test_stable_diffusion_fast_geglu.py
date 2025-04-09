@@ -14,6 +14,7 @@
 
 import random
 
+from nemo.utils import get_current_device
 import pytest
 import torch
 
@@ -46,11 +47,11 @@ class TestStableDiffusionFastGeGLU:
             shape1 = rng.randint(1, 8192)
 
             x_and_gate_fast = torch.randn(
-                [batch_size, shape1, 2 * dim_last], device='cuda', dtype=dtype
+                [batch_size, shape1, 2 * dim_last], device=get_current_device(), dtype=dtype
             ).requires_grad_(True)
             x_and_gate_compile = x_and_gate_fast.detach().clone().requires_grad_(True)
             x_and_gate_ref = x_and_gate_fast.detach().clone().to(dtype_ref).requires_grad_(True)
-            grad_output = torch.randn([batch_size, shape1, dim_last], device='cuda', dtype=dtype)
+            grad_output = torch.randn([batch_size, shape1, dim_last], device=get_current_device(), dtype=dtype)
 
             output_fast = fast_geglu.geglu(x_and_gate_fast)
             output_compile = geglu_compile(x_and_gate_compile)

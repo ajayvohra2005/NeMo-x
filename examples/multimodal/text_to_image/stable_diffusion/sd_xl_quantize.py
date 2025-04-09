@@ -86,7 +86,7 @@ def main(cfg):
     )
 
     model = megatron_diffusion_model.model
-    model.cuda()
+    model.to(device=get_current_device())
     base = SamplingPipeline(model, use_fp16=cfg.use_fp16, is_legacy=cfg.model.is_legacy)
 
     QuantModuleRegistry.register({LinearWrapper: "nemo_linear_wrapper"})(_QuantNeMoLinearWrapper)

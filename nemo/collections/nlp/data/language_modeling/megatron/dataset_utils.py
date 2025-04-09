@@ -51,7 +51,7 @@ from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import
 from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import make_indexed_dataset_compatibility
 from nemo.collections.nlp.data.language_modeling.megatron.length_distribution_type import LengthDistribution
 from nemo.collections.nlp.data.language_modeling.megatron.lm_adapted_t5_dataset import T5LMAdaptedDataset
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 from nemo.utils.get_rank import is_global_rank_zero
 
 try:
@@ -73,6 +73,7 @@ DSET_TYPE_UL2 = 'ul2'
 
 DSET_TYPES = [DSET_TYPE_BERT, DSET_TYPE_ICT, DSET_TYPE_T5, DSET_TYPE_T5_LM, DSET_TYPE_BART, DSET_TYPE_UL2]
 
+xm = get_xla_model()
 
 def compile_helper():
     """Compile helper function ar runtime. Make sure this
@@ -1345,8 +1346,16 @@ def get_samples_mapping(
     if sanity_check_dist_workers:
         torch.distributed.barrier()
         counts = torch.cuda.LongTensor([1])
-        torch.distributed.all_reduce(counts, group=parallel_state.get_data_parallel_group(with_context_parallel=True))
-        torch.distributed.all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [counts], 
+                        groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 
+                        pin_layout=False)
+            xm.all_reduce(xm.REDUCE_SUM, [counts], 
+                        groups=parallel_state.get_pipeline_model_parallel_groups(), 
+                        pin_layout=False)
+        else:
+            torch.distributed.all_reduce(counts, group=parallel_state.get_data_parallel_group(with_context_parallel=True))
+            torch.distributed.all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
         assert counts[0].item() == (
             torch.distributed.get_world_size()
             // torch.distributed.get_world_size(group=parallel_state.get_tensor_model_parallel_group())

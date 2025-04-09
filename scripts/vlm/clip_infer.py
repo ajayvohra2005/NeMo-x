@@ -29,6 +29,7 @@ import argparse
 import os
 
 import requests
+from nemo.utils import get_current_device
 import torch
 from PIL import Image
 from transformers import AutoProcessor
@@ -90,7 +91,7 @@ def main(args) -> None:
 
     fabric = trainer.to_fabric()
     model = fabric.import_model(args.hf_path, CLIPModel)
-    model = model.module.cuda()
+    model = model.module.to(device=get_current_device())
 
     # Freeze the models, We have a few nesting in the model
     vision_model = model.module.module.vision_model.eval()
@@ -109,16 +110,16 @@ def main(args) -> None:
             max_length=max_length,
         )
 
-        inputs = {key: value.to("cuda") for key, value in inputs.items()}
+        inputs = {key: value.to(device=get_current_device()) for key, value in inputs.items()}
 
         model_hf = HFCLIPModel.from_pretrained(hf_repo)
-        model_hf = model_hf.to("cuda")
+        model_hf = model_hf.to(device=get_current_device())
         output_hf = model_hf(**inputs)
 
-        image_embeds_nemo = vision_model(inputs["pixel_values"].cuda().to(torch.bfloat16))
+        image_embeds_nemo = vision_model(inputs["pixel_values"].to(device=get_current_device()).to(torch.bfloat16))
         image_embeds_hf = output_hf["image_embeds"]
 
-        text_embeds_nemo = text_model(inputs["input_ids"].cuda())
+        text_embeds_nemo = text_model(inputs["input_ids"].to(device=get_current_device()))
         text_embeds_hf = output_hf["text_embeds"]
 
         image_embeds_nemo /= image_embeds_nemo.norm(dim=-1, keepdim=True)

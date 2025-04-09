@@ -19,6 +19,7 @@ import shutil
 import tempfile
 from unittest import mock
 
+from nemo.utils import get_current_device
 import numpy as np
 import pytest
 import soundfile as sf
@@ -205,7 +206,7 @@ class TestASRDatasets:
 
         num_samples = 10
         batch_size = 2
-        device = 'gpu' if torch.cuda.is_available() else 'cpu'
+        device = get_current_device()
         texts = []
 
         with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8') as f:
@@ -293,7 +294,7 @@ class TestASRDatasets:
 
         num_samples = 10
         batch_size = 2
-        device = 'gpu' if torch.cuda.is_available() else 'cpu'
+        device = get_current_device()
         texts = []
 
         tokenizer_path = os.path.join(test_data_dir, "asr", "tokenizers", "an4_wpe_128", 'vocab.txt')
@@ -462,7 +463,7 @@ class TestASRDatasets:
         ]
 
         batch_size = 8
-        device = 'gpu' if torch.cuda.is_available() else 'cpu'
+        device = get_current_device()
         texts = []
 
         with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8') as f:

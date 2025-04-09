@@ -20,7 +20,7 @@ from nemo.collections.nlp.models.nlp_model import NLPModel
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin, replace_prefix
 from nemo.collections.nlp.parts.peft_config import PEFT_CONFIG_MAP, PEFTConfig, PtuningPEFTConfig
 from nemo.core.classes.mixins.adapter_mixins import AdapterModuleMixin
-from nemo.utils import logging, model_utils
+from nemo.utils import logging, get_current_device
 
 try:
     from megatron.core import parallel_state
@@ -111,10 +111,7 @@ class MultimodalAdapterModelMixin(NLPAdapterModelMixin):
 
         # Determine device
         if map_location is None:
-            if torch.cuda.is_available():
-                map_location = 'cuda'
-            else:
-                map_location = 'cpu'
+            map_location = get_current_device()
 
         # TODO (yuya): this logic needs to change for dist ckpt because after
         # adding adapaters the checkpoint will change

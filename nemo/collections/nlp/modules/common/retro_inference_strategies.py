@@ -16,6 +16,7 @@ import json
 import pickle
 from typing import List, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -143,7 +144,7 @@ class RetroModelTextGenerationStrategy(TextGenerationStrategy):
         """initialize the batch data before the inference steps."""
         # Move to GPU.
         tokenizer = self.model.tokenizer
-        tokens = context_tokens.contiguous().cuda()
+        tokens = context_tokens.contiguous().to(device=get_current_device())
         micro_batch_size, seq_length = tokens.size()
         position_ids = torch.arange(seq_length, dtype=torch.long, device=tokens.device)
         self.position_ids = position_ids.unsqueeze(0).repeat(micro_batch_size, 1)
@@ -196,7 +197,7 @@ class RetroModelTextGenerationStrategy(TextGenerationStrategy):
             # not using type2use. uncomment it if it is used
             # if type_ids is not None:
             #     types2use = type_ids[:, context_length - 1].view(batch_size, -1)
-        retrieved = torch.tensor(np.array(self.retrieved), device=torch.cuda.current_device())
+        retrieved = torch.tensor(np.array(self.retrieved), device=get_current_device())
         if retrieved.numel() != 0:
             retrieved = retrieved.transpose(0, 1).contiguous()
         if self.megatron_lm_compatible:
@@ -207,7 +208,7 @@ class RetroModelTextGenerationStrategy(TextGenerationStrategy):
         if retrieved.numel() == 0:
             # add empty retrieved
             retrieved = (
-                torch.tensor(self.service.get_knn(['a'], 0), device=torch.cuda.current_device())
+                torch.tensor(self.service.get_knn(['a'], 0), device=get_current_device())
                 .unsqueeze(0)
                 .repeat(1, len(self.retrieved), 1, 1)
             )
@@ -218,14 +219,14 @@ class RetroModelTextGenerationStrategy(TextGenerationStrategy):
         """Prepare batch for each of the inference steps"""
         # attention_mask_repeat = torch.concat([self.attention_mask for _ in range(micro_batch_size)])
         setkey_value_array = torch.tensor(
-            [set_inference_key_value_memory] * micro_batch_size, device=torch.cuda.current_device()
+            [set_inference_key_value_memory] * micro_batch_size, device=get_current_device()
         )
-        len_array = torch.tensor([maxlen] * micro_batch_size, device=torch.cuda.current_device())
+        len_array = torch.tensor([maxlen] * micro_batch_size, device=get_current_device())
         if self.neighbors == 0:
             # no retrieval, use 1 padding
-            neighbors_array = torch.tensor([1] * micro_batch_size, device=torch.cuda.current_device())
+            neighbors_array = torch.tensor([1] * micro_batch_size, device=get_current_device())
         else:
-            neighbors_array = torch.tensor([self.neighbors] * micro_batch_size, device=torch.cuda.current_device())
+            neighbors_array = torch.tensor([self.neighbors] * micro_batch_size, device=get_current_device())
 
         batch = [
             tokens2use,
@@ -291,7 +292,7 @@ class RetroQAModelTextGenerationStrategy(RetroModelTextGenerationStrategy):
         """initialize the batch data before the inference steps."""
         # Move to GPU.
         tokenizer = self.model.tokenizer
-        tokens = context_tokens.contiguous().cuda()
+        tokens = context_tokens.contiguous().to(device=get_current_device())
         micro_batch_size, seq_length = tokens.size()
         position_ids = torch.arange(seq_length, dtype=torch.long, device=tokens.device)
         self.position_ids = position_ids.unsqueeze(0).repeat(micro_batch_size, 1)
@@ -344,7 +345,7 @@ class RetroQAModelTextGenerationStrategy(RetroModelTextGenerationStrategy):
             # not using type2use. uncomment it if it is used
             # if type_ids is not None:
             #     types2use = type_ids[:, context_length - 1].view(batch_size, -1)
-        retrieved = torch.tensor(np.array(self.retrieved), device=torch.cuda.current_device())
+        retrieved = torch.tensor(np.array(self.retrieved), device=get_current_device())
         if retrieved.numel() != 0:
             retrieved = retrieved.transpose(0, 1).contiguous()
         if self.megatron_lm_compatible:
@@ -355,7 +356,7 @@ class RetroQAModelTextGenerationStrategy(RetroModelTextGenerationStrategy):
         if retrieved.numel() == 0:
             # add empty retrieved
             retrieved = (
-                torch.tensor(self.service.get_knn(['a'], 0), device=torch.cuda.current_device())
+                torch.tensor(self.service.get_knn(['a'], 0), device=get_current_device())
                 .unsqueeze(0)
                 .repeat(1, len(self.retrieved), 1, 1)
             )
@@ -364,14 +365,14 @@ class RetroQAModelTextGenerationStrategy(RetroModelTextGenerationStrategy):
         """Prepare batch for each of the inference steps"""
         # attention_mask_repeat = torch.concat([self.attention_mask for _ in range(micro_batch_size)])
         setkey_value_array = torch.tensor(
-            [set_inference_key_value_memory] * micro_batch_size, device=torch.cuda.current_device()
+            [set_inference_key_value_memory] * micro_batch_size, device=get_current_device()
         )
-        len_array = torch.tensor([maxlen] * micro_batch_size, device=torch.cuda.current_device())
+        len_array = torch.tensor([maxlen] * micro_batch_size, device=get_current_device())
         if self.neighbors == 0:
             # no retrieval, use 1 padding
-            neighbors_array = torch.tensor([1] * micro_batch_size, device=torch.cuda.current_device())
+            neighbors_array = torch.tensor([1] * micro_batch_size, device=get_current_device())
         else:
-            neighbors_array = torch.tensor([self.neighbors] * micro_batch_size, device=torch.cuda.current_device())
+            neighbors_array = torch.tensor([self.neighbors] * micro_batch_size, device=get_current_device())
 
         batch = [
             tokens2use,

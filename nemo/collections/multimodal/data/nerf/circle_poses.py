@@ -14,6 +14,7 @@
 
 from typing import Dict, Union
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -34,7 +35,7 @@ def circle_poses(
     angle_overhead: float = 30,
     angle_front: float = 60,
     return_dirs: bool = False,
-    device: torch.device = "cuda",
+    device: torch.device = None,
 ) -> torch.Tensor:
     """
     Generate camera poses based on a circular arrangement.
@@ -54,6 +55,7 @@ def circle_poses(
             - dirs (torch.Tensor, optional): View directions, if requested.
     """
     # Convert degrees to radians for theta and phi
+    device = device if device else get_current_device()
     theta = theta / 180 * np.pi
     phi = phi / 180 * np.pi
     angle_overhead = angle_overhead / 180 * np.pi

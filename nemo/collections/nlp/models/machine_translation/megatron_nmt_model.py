@@ -50,7 +50,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import get_iterator_k_sp
 from nemo.collections.nlp.parts.nlp_overrides import GlobalBatchDataFetcher
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes import Exportable
-from nemo.utils import AppState, logging, timers
+from nemo.utils import AppState, logging, timers, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -77,7 +77,7 @@ except (ImportError, ModuleNotFoundError):
 
 
 __all__ = ["MegatronNMTModel"]
-
+xm = get_xla_model()
 
 class MultilingualModelType(enum.Enum):
     one_to_many = 1
@@ -485,7 +485,8 @@ class MegatronNMTModel(MegatronLMEncoderDecoderModel, Exportable):
             torch.distributed.all_gather_object(
                 tr_gt_inp,
                 [(t, g, i) for (t, g, i) in zip(translations, ground_truths, inputs)],
-                group=parallel_state.get_data_parallel_group(),
+                group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
             )
             # if parallel_state.get_data_parallel_rank() == 0:
             if self.global_rank == 0:

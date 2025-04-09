@@ -17,6 +17,7 @@ import os
 from math import ceil
 from typing import Any, Dict, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from omegaconf import DictConfig, OmegaConf, open_dict
 from torch.utils.data import DataLoader
@@ -365,9 +366,9 @@ class SLUIntentSlotBPEModel(ASRModel, ExportableEncDecModel, ASRModuleMixin, ASR
             augmentor = None
 
         shuffle = config['shuffle']
-        device = 'gpu' if torch.cuda.is_available() else 'cpu'
+        device = get_current_device()
         if config.get('use_dali', False):
-            device_id = self.local_rank if device == 'gpu' else None
+            device_id = self.local_rank if device.index  else None
             dataset = audio_to_text_dataset.get_dali_bpe_dataset(
                 config=config,
                 tokenizer=self.tokenizer,

@@ -14,6 +14,7 @@
 
 from typing import List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer
@@ -106,7 +107,7 @@ class FrozenCLIPEmbedder(AbstractEmbModel):
     def __init__(
         self,
         version="openai/clip-vit-large-patch14",
-        device="cuda",
+        device=None,
         max_length=77,
         enable_lora_finetune=False,
         layer="last",
@@ -117,7 +118,7 @@ class FrozenCLIPEmbedder(AbstractEmbModel):
         super().__init__(enable_lora_finetune, target_block=["CLIPAttention", "CLIPMLP"], target_module=["Linear"])
         self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
         self.transformer = CLIPTextModel.from_pretrained(version, torch_dtype=dtype).to(device)
-        self.device = device
+        self.device = device if device else get_current_device()
         self.max_length = max_length
         self.freeze()
         if enable_lora_finetune:
@@ -172,7 +173,7 @@ class FrozenT5Embedder(AbstractEmbModel):
         self,
         version="google/t5-v1_1-xxl",
         max_length=512,
-        device="cuda",
+        device=None,
         dtype=torch.float,
     ):
         super().__init__()
@@ -180,7 +181,7 @@ class FrozenT5Embedder(AbstractEmbModel):
         self.transformer = T5EncoderModel.from_pretrained(version, torch_dtype=dtype).to(device)
         self.max_length = max_length
         self.freeze()
-        self.device = device
+        self.device = device if device else get_current_device()
         self.dtype = dtype
 
     def freeze(self):

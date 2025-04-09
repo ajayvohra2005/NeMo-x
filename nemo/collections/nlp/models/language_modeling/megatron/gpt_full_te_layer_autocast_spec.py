@@ -15,6 +15,7 @@
 from importlib.metadata import version
 from typing import Any, Callable, Optional
 
+from nemo.utils import get_current_device_type
 import packaging
 import torch
 
@@ -164,7 +165,7 @@ class AutocastTransformerLayer(TransformerLayer):
                 is_first_microbatch=is_first_microbatch,
                 checkpoint_core_attention=checkpoint_core_attention,
             )
-        with torch.autocast(device_type="cuda", dtype=self.dtype):
+        with torch.autocast(device_type=get_current_device_type(), dtype=self.dtype):
             return super().forward(
                 hidden_states,
                 attention_mask=attention_mask,

@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, Literal, Optional, Union
 
 import lightning.pytorch as L
+from nemo.utils import get_current_device
 import torch
 import torch.distributed
 from megatron.core import InferenceParams, parallel_state, tensor_parallel
@@ -71,7 +72,7 @@ def bert_data_step(dataloder_iter) -> Dict[str, torch.Tensor]:
     if parallel_state.is_pipeline_last_stage():
         required_keys.update(("labels", "loss_mask", "types", "is_random"))
 
-    _batch = {key: val.cuda(non_blocking=True) if key in required_keys else None for key, val in _batch.items()}
+    _batch = {key: val.to(get_current_device()) if key in required_keys else None for key, val in _batch.items()}
     # slice batch along sequence dimension for context parallelism
     output = get_batch_on_this_context_parallel_rank(_batch)
 
@@ -295,7 +296,7 @@ class MCoreBertModelWrapperWithPostLNSupport(MCoreBert):
             output = torch.zeros(
                 size=(embeddings.shape[0], embeddings.shape[2]),
                 dtype=torch.float32,
-                device=torch.cuda.current_device(),
+                device=get_current_device(),
             )
             for i, (embedding, mask) in enumerate(zip(embeddings, masks)):
                 output[i, :] = torch.mean(embedding[1 : mask - 1], dim=0)

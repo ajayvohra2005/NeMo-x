@@ -16,6 +16,7 @@ import math
 import random
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import omegaconf
 import pytest
 import torch
@@ -139,8 +140,7 @@ class TestOptimizersSchedulers:
     @pytest.mark.unit
     def test_get_optimizer(self):
         model = TempModel()
-        if torch.cuda.is_available():
-            model.cuda()
+        model.to(device=get_current_device())
 
         for opt_name in AVAILABLE_OPTIMIZERS.keys():
             if opt_name == 'fused_adam' or opt_name == 'megatron_fused_adam':

@@ -20,7 +20,7 @@ from typing import Dict, Iterator, List, Optional, Tuple, Union
 import torch
 from torch import Tensor
 
-from nemo.utils import logging, logging_mode
+from nemo.utils import logging, logging_mode, get_xla_model
 
 try:
     from apex.normalization import MixedFusedRMSNorm
@@ -45,6 +45,7 @@ except (ImportError, ModuleNotFoundError):
 
     HAVE_MEGATRON_CORE = False
 
+xm = get_xla_model()
 
 def ApproxGELUActivation(input: Tensor):
     """
@@ -195,7 +196,12 @@ def erf_gelu(x):
 def average_losses_across_data_parallel_group(losses):
     """Reduce a tensor of losses across all GPUs."""
     averaged_losses = torch.cat([loss.clone().detach().view(1) for loss in losses])
-    torch.distributed.all_reduce(averaged_losses, group=parallel_state.get_data_parallel_group())
+    if xm:
+        xm.all_reduce(xm.REDUCE_SUM, [averaged_losses], 
+                    groups=parallel_state.get_data_parallel_groups(), 
+                    pin_layout=False)
+    else:
+        torch.distributed.all_reduce(averaged_losses, group=parallel_state.get_data_parallel_group())
     averaged_losses = averaged_losses / torch.distributed.get_world_size(
         group=parallel_state.get_data_parallel_group()
     )

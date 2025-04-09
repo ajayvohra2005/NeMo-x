@@ -20,6 +20,7 @@ from dataclasses import fields
 from functools import cache, partial
 from typing import Any, Optional
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -50,7 +51,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
 from nemo.collections.nlp.parts.utils_funcs import activation_to_func, get_last_rank
 from nemo.collections.vision.modules.vit.vit_backbone import VitBackbone
 from nemo.core.classes.common import PretrainedModelInfo
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 from nemo.utils.import_utils import safe_import, safe_import_from
 from nemo.utils.te_utils import te_version
 
@@ -107,6 +108,8 @@ except (ImportError, ModuleNotFoundError):
 _, HAVE_TE = safe_import("transformer_engine")
 te_module, _ = safe_import_from("transformer_engine.pytorch", "module")
 
+
+xm = get_xla_model()
 
 @cache
 def mcore_supports_moe() -> bool:
@@ -255,7 +258,7 @@ class CLIPTextTransformer(MegatronModule):
 
         self.position_ids = None
         if self.pre_process:
-            self.position_ids = torch.arange(model_cfg.max_position_embeddings).expand(1, -1).cuda()
+            self.position_ids = torch.arange(model_cfg.max_position_embeddings).expand(1, -1).to(device=get_current_device())
 
         if self.post_process:
             self.output_dim = model_cfg.output_dim
@@ -409,7 +412,7 @@ class MCoreSiglipTextModel(MCoreGPTModel):
 
         self.position_ids = None
         if self.pre_process:
-            self.position_ids = torch.arange(kwargs['max_sequence_length']).expand(1, -1).cuda()
+            self.position_ids = torch.arange(kwargs['max_sequence_length']).expand(1, -1).to(device=get_current_device())
 
     def forward(self, input_ids):
 
@@ -464,7 +467,7 @@ class MCoreCLIPTextModel(MCoreGPTModel):
         )
         self.position_ids = None
         if self.pre_process:
-            self.position_ids = torch.arange(kwargs['max_sequence_length']).expand(1, -1).cuda()
+            self.position_ids = torch.arange(kwargs['max_sequence_length']).expand(1, -1).to(device=get_current_device())
 
     def forward(self, input_ids):
         x = super().forward(input_ids, position_ids=self.position_ids, attention_mask=None)
@@ -731,9 +734,9 @@ class MegatronCLIPModel(MegatronBaseModel):
                 # Pre-allocate the model on GPU to have master parameters allocated on the same device with matching data type
                 if isinstance(self.model, list):
                     for module in self.model:
-                        module.cuda(torch.cuda.current_device())
+                        module.cuda(get_current_device())
                 else:
-                    self.model.cuda(torch.cuda.current_device())
+                    self.model.cuda(get_current_device())
 
             self._wrap_model_for_O2()
 
@@ -936,7 +939,7 @@ class MegatronCLIPModel(MegatronBaseModel):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0).cuda()
+                loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
         return loss_mean
 
@@ -1159,7 +1162,12 @@ class MegatronCLIPModel(MegatronBaseModel):
             self._append_sequence_parallel_module_grads(self.model, grads)
 
         coalesced = torch._utils._flatten_dense_tensors(grads)
-        torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
+                          groups=parallel_state.get_tensor_model_parallel_groups(), 
+                          pin_layout=False)
+        else:
+            torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
             buf.copy_(synced)
 
@@ -1180,14 +1188,14 @@ class MegatronCLIPModel(MegatronBaseModel):
         def fwd_output_and_loss_func(dataloader_iter, model):
             batch, _, _ = next(dataloader_iter)
             if parallel_state.get_pipeline_model_parallel_world_size() == 1:
-                images = batch["images"].cuda(non_blocking=True)
-                captions = batch["captions"].cuda(non_blocking=True)
+                images = batch["images"].to(get_current_device())
+                captions = batch["captions"].to(get_current_device())
             else:
                 # GPT3 uses only causal mask, which doesn't need attention mask
                 if parallel_state.is_pipeline_first_stage():
                     # Fist pipeline stage needs only the tokens and position_ids
-                    images = batch["images"].cuda(non_blocking=True)
-                    captions = batch["captions"].cuda(non_blocking=True)
+                    images = batch["images"].to(get_current_device())
+                    captions = batch["captions"].to(get_current_device())
                 else:
                     # Intermediate / Last pipeline stage doesn't need any inputs
                     images, captions = None, None
@@ -1212,7 +1220,7 @@ class MegatronCLIPModel(MegatronBaseModel):
         with torch.no_grad():
             zeroshot_weights = []
             for texts in self.imagenet_val["texts"]:
-                texts = texts.cuda(non_blocking=True)
+                texts = texts.to(get_current_device())
                 # TODO (yuya): distributed not working
                 with torch.cuda.amp.autocast(
                     enabled=self.autocast_dtype in (torch.half, torch.bfloat16),
@@ -1248,8 +1256,8 @@ class MegatronCLIPModel(MegatronBaseModel):
                 if images is None or target is None:
                     continue
 
-                images = images.cuda(non_blocking=True).to(self.autocast_dtype)
-                target = target.cuda(non_blocking=True)
+                images = images.to(get_current_device()).to(self.autocast_dtype)
+                target = target.to(get_current_device())
                 # predict
                 with torch.cuda.amp.autocast(
                     enabled=self.autocast_dtype in (torch.half, torch.bfloat16),
@@ -1292,7 +1300,7 @@ class MegatronCLIPModel(MegatronBaseModel):
 
         # Run zero shot imagenet evaluation
         if self.imagenet_val is not None:
-            imagenet_metric = torch.zeros(2).cuda()
+            imagenet_metric = torch.zeros(2).to(device=get_current_device())
             imagenet_metric[0], imagenet_metric[1] = self.zero_shot_eval()
             imagenet_metric = average_losses_across_data_parallel_group(imagenet_metric)
             self.log('imagenet_top1', imagenet_metric[0], prog_bar=True, rank_zero_only=True, batch_size=1)
@@ -1366,9 +1374,14 @@ class MegatronCLIPModel(MegatronBaseModel):
             num_parameters_on_device = sum([p.nelement() for p in self.model.parameters()])
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda()
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(device=get_current_device())
 
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                          groups=parallel_state.get_model_parallel_groups(), 
+                          pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

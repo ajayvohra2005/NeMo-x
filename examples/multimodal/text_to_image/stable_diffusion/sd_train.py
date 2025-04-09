@@ -88,7 +88,7 @@ def main(cfg) -> None:
                 autocast_enabled = True
                 dgrad_dtype = torch.float16
 
-            model = model.cuda()
+            model = model.to(device=get_current_device())
             for _ in range(5):
                 with torch.autocast(device_type="cuda", enabled=autocast_enabled, dtype=torch.float16):
                     out = model.model.model.diffusion_model(x, t, context=cc)

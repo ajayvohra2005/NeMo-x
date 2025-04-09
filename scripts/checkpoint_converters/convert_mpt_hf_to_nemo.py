@@ -57,6 +57,7 @@ import argparse
 import os
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 import yaml
 from omegaconf import OmegaConf
@@ -153,7 +154,7 @@ if __name__ == '__main__':
     trainer_dict = {
         'devices': 1,
         'num_nodes': 1,
-        'accelerator': 'gpu' if args.cuda else 'cpu',
+        'accelerator': get_current_device(),
         'precision': 'bf16',
         'logger': False,  # logger provided by exp_manager
         'enable_checkpointing': False,
@@ -185,7 +186,7 @@ if __name__ == '__main__':
         model = model.bfloat16()
 
     if args.cuda:
-        model = model.cuda()
+        model = model.to(device=get_current_device())
 
     mpt_1 = torch.load(os.path.join(args.input_name_or_path, 'pytorch_model-00001-of-00002.bin'), map_location="cpu")
     mpt_2 = torch.load(os.path.join(args.input_name_or_path, 'pytorch_model-00002-of-00002.bin'), map_location="cpu")

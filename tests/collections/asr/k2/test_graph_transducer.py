@@ -15,6 +15,7 @@
 import random
 from typing import List
 
+from nemo.utils import get_current_device
 import numpy as np
 import pytest
 import torch
@@ -298,7 +299,7 @@ class TestRnntLogProbs:
         """
         Test Triton-based implementation using etalon Torch-based implementation for RNN-T log-probs.
         """
-        device = torch.device("cuda")
+        device = get_current_device()
         torch.manual_seed(777)
 
         targets = torch.tensor(

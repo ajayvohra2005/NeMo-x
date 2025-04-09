@@ -15,6 +15,7 @@
 from typing import List, Optional, Union
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 import torch.distributed
 from megatron.core.inference.common_inference_params import CommonInferenceParams
@@ -50,7 +51,7 @@ def setup_inference_wrapper(
     """Set up inference wrapper for the model"""
     config = model.config
 
-    mcore_model = model.module.module.cuda()
+    mcore_model = model.module.module.to(device=get_current_device())
     mcore_model = mcore_model.to(params_dtype)
     mcore_model.eval()
 

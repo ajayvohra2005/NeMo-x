@@ -17,6 +17,7 @@ from functools import partial
 from itertools import chain
 from typing import Any, Optional
 
+from nemo.utils import get_current_device
 import numpy as np
 import packaging
 import torch
@@ -514,7 +515,7 @@ class NevaBaseModel:
                 vision_encoder = CLIPVisionModel.from_pretrained(
                     mm_cfg.vision_encoder.from_pretrained,
                     torch_dtype=torch.bfloat16,
-                ).cuda()
+                ).to(device=get_current_device())
                 vision_encoder = vision_encoder.to(torch.bfloat16)
                 if mm_cfg.vision_encoder.freeze:
                     for param in vision_encoder.parameters():
@@ -524,7 +525,7 @@ class NevaBaseModel:
                 vision_encoder = SiglipVisionModel.from_pretrained(
                     mm_cfg.vision_encoder.from_pretrained,
                     torch_dtype=torch.bfloat16,
-                ).cuda()
+                ).to(device=get_current_device())
                 vision_encoder = vision_encoder.to(torch.bfloat16)
                 if mm_cfg.vision_encoder.freeze:
                     for param in vision_encoder.parameters():
@@ -974,7 +975,7 @@ class MegatronNevaModel(MultimodalAdapterModelMixin, MegatronGPTModel):
                     loss_sum = (
                         torch.vstack(loss_sum_tensors_list).sum(axis=0)
                         if len(loss_sum_tensors_list) > 0
-                        else torch.tensor([0.0, 0.0]).cuda()
+                        else torch.tensor([0.0, 0.0]).to(device=get_current_device())
                     )
                     return loss_sum
             else:
@@ -982,7 +983,7 @@ class MegatronNevaModel(MultimodalAdapterModelMixin, MegatronGPTModel):
                 if forward_only:
                     loss_mean = []
                 else:
-                    loss_mean = torch.tensor(0.0).cuda()
+                    loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
             return loss_mean
 
@@ -1010,22 +1011,22 @@ class MegatronNevaModel(MultimodalAdapterModelMixin, MegatronGPTModel):
             if parallel_state.get_pipeline_model_parallel_world_size() == 1:
                 for k in batch.keys():
                     if self.get_attention_mask_from_fusion:
-                        batch[k] = batch[k].cuda(non_blocking=True) if k not in ['attention_mask'] else None
+                        batch[k] = batch[k].to(get_current_device()) if k not in ['attention_mask'] else None
                     else:
-                        batch[k] = batch[k].cuda(non_blocking=True)
+                        batch[k] = batch[k].to(get_current_device())
             else:
                 if parallel_state.is_pipeline_first_stage():
                     # First pipeline stage needs tokens, position_ids, and attention_mask
                     for k in batch.keys():
                         if self.get_attention_mask_from_fusion:
                             batch[k] = (
-                                batch[k].cuda(non_blocking=True)
+                                batch[k].to(get_current_device())
                                 if k in ['tokens', 'position_ids', 'media', 'cu_seqlens']
                                 else None
                             )
                         else:
                             batch[k] = (
-                                batch[k].cuda(non_blocking=True)
+                                batch[k].to(get_current_device())
                                 if k in ['tokens', 'position_ids', 'attention_mask', 'media', 'cu_seqlens']
                                 else None
                             )
@@ -1034,13 +1035,13 @@ class MegatronNevaModel(MultimodalAdapterModelMixin, MegatronGPTModel):
                     for k in batch.keys():
                         if self.get_attention_mask_from_fusion:
                             batch[k] = (
-                                batch[k].cuda(non_blocking=True)
+                                batch[k].to(get_current_device())
                                 if k in ['labels', 'loss_mask', 'cu_seqlens']
                                 else None
                             )
                         else:
                             batch[k] = (
-                                batch[k].cuda(non_blocking=True)
+                                batch[k].to(get_current_device())
                                 if k in ['labels', 'loss_mask', 'attention_mask', 'cu_seqlens']
                                 else None
                             )
@@ -1104,13 +1105,13 @@ class MegatronNevaModel(MultimodalAdapterModelMixin, MegatronGPTModel):
                 set_inference_key_value_memory,
                 inference_max_sequence_len,
             ) = batch
-            tokens = tokens.cuda()
-            position_ids = position_ids.cuda()
+            tokens = tokens.to(device=get_current_device())
+            position_ids = position_ids.to(device=get_current_device())
             if attention_mask != None:
-                attention_mask = attention_mask.cuda()
+                attention_mask = attention_mask.to(device=get_current_device())
                 attention_mask = attention_mask[0:1]
             if media is not None:
-                media = media.cuda()
+                media = media.to(device=get_current_device())
             labels = None
             if self.mcore_gpt:
                 # if first step, then clear KV cache, otherwise reuse inference_paarms
@@ -1164,10 +1165,10 @@ class MegatronNevaModel(MultimodalAdapterModelMixin, MegatronGPTModel):
                 # Compute the avg loss by total_loss across all samples / total number of samples
                 # total_loss_and_total_samples = torch.vstack(outputs).sum(axis=0)
                 # avg_loss = total_loss_and_total_samples[0] / total_loss_and_total_samples[1]
-                # averaged_loss = avg_loss.type(torch.float32).cuda()
+                # averaged_loss = avg_loss.type(torch.float32).to(device=get_current_device())
                 raise NotImplementedError("`validation_drop_last=False` is not supported!")
         else:
-            averaged_loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+            averaged_loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())
 
         # we can only log on one rank if it is rank zero so we broadcast from last rank
         torch.distributed.broadcast(averaged_loss, get_last_rank())
@@ -1795,6 +1796,6 @@ class MegatronNevaModel(MultimodalAdapterModelMixin, MegatronGPTModel):
             length_params = get_default_length_params()
 
         # Supports only one prompt at a time
-        result = megatron_neva_generate(self.cuda(), input_prompts, length_params, sampling_params, inference_config)
+        result = megatron_neva_generate(self.to(device=get_current_device()), input_prompts, length_params, sampling_params, inference_config)
 
         return result

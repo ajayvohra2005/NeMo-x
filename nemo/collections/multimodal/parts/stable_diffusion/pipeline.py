@@ -17,6 +17,7 @@ import time
 from collections import defaultdict
 from itertools import chain
 
+from nemo.utils import get_current_device
 import torch
 from PIL import Image
 
@@ -152,7 +153,7 @@ def pipeline(model, cfg, verbose=True, rng=None):
             latent_shape = [in_channels, height // downsampling_factor, width // downsampling_factor]
             latents = torch.randn(
                 [batch_size, in_channels, height // downsampling_factor, width // downsampling_factor], generator=rng
-            ).to(torch.cuda.current_device())
+            ).to(get_current_device())
             assert len(cond) == len(latents), (len(cond), len(latents))
 
             tic = time.perf_counter()

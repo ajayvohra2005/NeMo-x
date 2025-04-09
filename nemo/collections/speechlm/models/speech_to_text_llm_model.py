@@ -21,6 +21,7 @@ from types import MethodType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 from lightning.pytorch.utilities import rank_zero_only
@@ -66,9 +67,10 @@ from nemo.collections.speechlm.utils.text_generation.audio_text_generation_utils
 from nemo.lightning import io
 from nemo.lightning.io.pl import ckpt_to_weights_subdir
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
-from nemo.utils import AppState, logging, model_utils
+from nemo.utils import AppState, logging, model_utils, get_xla_model
 from nemo.utils.get_rank import get_last_rank
 
+xm = get_xla_model()
 
 def set_input_tensor(self, tensor: torch.Tensor):
     """
@@ -121,7 +123,7 @@ def speech_to_text_llm_data_step(dataloader_iter) -> Dict[str, Any]:
         required_keys.update(("labels", "loss_mask"))
 
     _batch = {
-        key: move_data_to_device(val, "cuda", non_blocking=True) if key in required_keys and val is not None else None
+        key: move_data_to_device(val, get_current_device(), non_blocking=True) if key in required_keys and val is not None else None
         for key, val in _batch.items()
     }
 
@@ -987,19 +989,19 @@ class SpeechToTextLLM(SpeechLanguageModel):
                 inference_config['inputs'] = batch
             elif 'num_audios' in batch:
                 inference_config['inputs'] = (
-                    batch['contexts'].cuda(),
-                    batch['context_lengths'].cuda(),
-                    batch['audio_signal'].cuda(),
-                    batch['audio_signal_length'].cuda(),
-                    batch['num_audios'].cuda(),
+                    batch['contexts'].to(device=get_current_device()),
+                    batch['context_lengths'].to(device=get_current_device()),
+                    batch['audio_signal'].to(device=get_current_device()),
+                    batch['audio_signal_length'].to(device=get_current_device()),
+                    batch['num_audios'].to(device=get_current_device()),
                     batch['context_start_idx'],
                 )
             else:
                 inference_config['inputs'] = (
-                    batch['contexts'].cuda(),
-                    batch['context_lengths'].cuda(),
-                    batch['audio_signal'].cuda(),
-                    batch['audio_signal_length'].cuda(),
+                    batch['contexts'].to(device=get_current_device()),
+                    batch['context_lengths'].to(device=get_current_device()),
+                    batch['audio_signal'].to(device=get_current_device()),
+                    batch['audio_signal_length'].to(device=get_current_device()),
                 )
             response = generate(self, **inference_config)
 
@@ -1013,7 +1015,7 @@ class SpeechToTextLLM(SpeechLanguageModel):
         )
 
         # add audio offsets to context lengths for properly decoding only the response
-        batch['context_lengths'] = batch['context_lengths'].cuda() + response['audio_feat_lens']
+        batch['context_lengths'] = batch['context_lengths'].to(device=get_current_device()) + response['audio_feat_lens']
 
         return response
 
@@ -1054,9 +1056,9 @@ class SpeechToTextLLM(SpeechLanguageModel):
             loss_vals = [x['loss'].view(-1, 1) for x in output]  # each loss is [1, B]
             if parallel_state.is_pipeline_last_stage():
                 # only the last pipeline parallel stages return loss with their batch size
-                loss = torch.vstack(loss_vals).mean().type(torch.float32).cuda()
+                loss = torch.vstack(loss_vals).mean().type(torch.float32).to(device=get_current_device())
             else:
-                loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+                loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())
 
             # we can only log on one rank if it is rank zero so we broadcast from last rank
             torch.distributed.broadcast(loss, get_last_rank())
@@ -1128,7 +1130,8 @@ class SpeechToTextLLM(SpeechLanguageModel):
                 {'preds': x['preds'], 'labels': x['labels'], 'inputs': x['inputs'], 'metadata': x['metadata']}
                 for x in output
             ],
-            group=parallel_state.get_data_parallel_group(),
+            group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
         )
 
         # Remove duplicate examples due to distributed sampler.

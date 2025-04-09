@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Generator, Iterator, List, Literal, Mapping, Optional, Sized, Union
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 from lightning.fabric.plugins import TorchCheckpointIO
 from lightning.fabric.utilities.cloud_io import get_filesystem
@@ -70,7 +71,7 @@ from nemo.collections.nlp.parts import utils_funcs
 from nemo.core.connectors.save_restore_connector import SaveRestoreConnector
 from nemo.core.optim import MainParamsOptimizerWrapper
 from nemo.core.optim.optimizers import init_optimizer_states
-from nemo.utils import AppState, logging
+from nemo.utils import AppState, logging, get_xla_model
 from nemo.utils.model_utils import ckpt_to_dir, inject_model_parallel_rank, uninject_model_parallel_rank
 
 try:
@@ -131,6 +132,8 @@ try:
 
 except Exception:
     HAVE_MODELOPT = False
+
+xm = get_xla_model()
 
 NEMO_MEGATRON_MODEL_PARALLEL_APPSTATE_OVERRIDE = "NEMO_MEGATRON_MODEL_PARALLEL_APPSTATE_OVERRIDE"
 URL = "https://docs.nvidia.com/nemo-framework/user-guide/latest/knownissues.html"
@@ -467,8 +470,8 @@ class NLPDDPStrategy(DDPStrategy):
 
     def _fix_tensors_device(self, ckpt: Dict) -> Dict:
         """Ensure checkpoint tensors are on the correct device."""
-        assert torch.cuda.is_initialized(), (torch.cuda.is_available(), torch.cuda.is_initialized())
-        cur_dev = torch.device("cuda", index=torch.cuda.current_device())
+        assert torch.cuda.is_initialized()
+        cur_dev = get_current_device()
 
         def _fix_device(t):
             if isinstance(t, torch.Tensor) and t.is_cuda and t.device != cur_dev:
@@ -877,11 +880,16 @@ class NLPFSDPStrategy(FSDPStrategy):
                     is_not_tp_duplicate = torch.tensor(
                         int(param_is_not_tensor_parallel_duplicate(p)),
                         dtype=torch.int8,
-                        device=torch.cuda.current_device(),
+                        device=get_current_device(),
                     )
-                    torch.distributed.all_reduce(
-                        is_not_tp_duplicate, op=ReduceOp.MIN, group=parallel_state.get_tensor_model_parallel_group()
-                    )
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_MIN, [is_not_tp_duplicate], 
+                                    groups=parallel_state.get_tensor_model_parallel_groups(), 
+                                    pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(
+                            is_not_tp_duplicate, op=ReduceOp.MIN, group=parallel_state.get_tensor_model_parallel_group()
+                        )
                     if is_not_tp_duplicate == 0:
                         self.kwargs["ignored_states"].append(p)
 
@@ -1547,9 +1555,14 @@ class GradScaler(torch.cuda.amp.GradScaler):
         found_inf = torch.stack(found_infs).sum(dim=0, keepdim=True)
 
         # Update across all model parallel instances.
-        torch.distributed.all_reduce(
-            found_inf, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
-        )
+        if xm:
+            xm.all_reduce(xm.REDUCE_MAX, [found_inf], 
+                        groups=parallel_state.get_model_parallel_groups(), 
+                        pin_layout=False)
+        else:
+            torch.distributed.all_reduce(
+                found_inf, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
+            )
 
         self._found_infs_cpu = found_inf.item()
         self._found_infs_cuda = found_inf
@@ -1596,17 +1609,27 @@ class GradScaler(torch.cuda.amp.GradScaler):
             found_inf_combined = found_infs[0]
 
             # Update across all model parallel instances.
-            torch.distributed.all_reduce(
-                found_inf_combined, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
-            )
+            if xm:
+                xm.all_reduce(xm.REDUCE_MAX, [found_inf_combined], 
+                            groups=parallel_state.get_model_parallel_groups(), 
+                            pin_layout=False)
+            else:
+                torch.distributed.all_reduce(
+                    found_inf_combined, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
+                )
 
             if len(found_infs) > 1:
                 for i in range(1, len(found_infs)):
                     found_inf = found_infs[i]
                     # Update across all model parallel instances.
-                    torch.distributed.all_reduce(
-                        found_inf, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
-                    )
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_MAX, [found_inf], 
+                                    groups=parallel_state.get_model_parallel_groups(), 
+                                    pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(
+                            found_inf, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
+                        )
                     found_inf_combined += found_inf
 
             if HAVE_AMP_C:
@@ -1697,7 +1720,7 @@ class GradScaler(torch.cuda.amp.GradScaler):
             self._hysteresis_tracker = state_dict["_hysterisis_tracker"]
         else:
             if HAVE_AMP_C:
-                self._hysteresis_tracker = torch.tensor([1], dtype=torch.int32, device="cuda")
+                self._hysteresis_tracker = torch.tensor([1], dtype=torch.int32, device=None)
             else:
                 self._hysteresis_tracker = 1
 

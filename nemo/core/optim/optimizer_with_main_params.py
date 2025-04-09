@@ -14,6 +14,7 @@
 
 from contextlib import contextmanager
 
+from nemo.utils import get_current_device
 import torch
 
 from nemo.utils import logging
@@ -97,7 +98,7 @@ class GradBucket(object):
             )
 
         self.numel = numel
-        self.data = torch.zeros(self.numel, dtype=torch.float, device=torch.cuda.current_device(), requires_grad=False)
+        self.data = torch.zeros(self.numel, dtype=torch.float, device=get_current_device(), requires_grad=False)
 
         self._data_group = data_group
         self.chunk_size_mb = chunk_size_mb

@@ -14,6 +14,7 @@
 import os
 import tempfile
 
+from nemo.utils import get_current_device, get_current_device_type
 import torch
 import torch.nn.functional as F
 from omegaconf import OmegaConf
@@ -63,7 +64,7 @@ class StableDiffusion(Txt2ImgGuidanceBase):
     def get_text_embeds(self, prompt):
         return self.text_encoder(prompt)
 
-    @torch.autocast(device_type="cuda")
+    @torch.autocast(device_type=get_current_device_type())
     def train_step(self, text_embeddings, pred_rgb, guidance_scale=100, as_latent=False):
 
         if as_latent:
@@ -115,10 +116,7 @@ class StableDiffusion(Txt2ImgGuidanceBase):
         return latents
 
     def load_config_and_state_from_nemo(self, nemo_path):
-        if torch.cuda.is_available():
-            map_location = torch.device('cuda')
-        else:
-            map_location = torch.device('cpu')
+        map_location = get_current_device()
         save_restore_connector = NLPSaveRestoreConnector()
         cwd = os.getcwd()
 

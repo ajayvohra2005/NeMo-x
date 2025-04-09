@@ -85,7 +85,7 @@ def main():
 
     if torch.cuda.is_available():
         for i, m in enumerate(models):
-            models[i] = m.cuda()
+            models[i] = m.to(device=get_current_device())
     for m in models:
         m.eval()
 
@@ -119,7 +119,7 @@ def main():
     # Do TTS
     tts_input = torch.stack(tts_input)
     if torch.cuda.is_available():
-        tts_input = tts_input.cuda()
+        tts_input = tts_input.to(device=get_current_device())
     specs = tts_model_spec.generate_spectrogram(tokens=tts_input)
     audio = []
     step = ceil(len(specs) / 4)

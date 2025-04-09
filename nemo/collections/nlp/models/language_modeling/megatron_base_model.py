@@ -20,6 +20,7 @@ from dataclasses import fields
 from datetime import datetime
 from typing import Any, Dict, Optional, Union
 
+from nemo.utils import get_current_device
 import omegaconf
 import torch
 import torch.nn as nn
@@ -44,7 +45,7 @@ from nemo.collections.nlp.parts import utils_funcs
 from nemo.collections.nlp.parts.nlp_overrides import NEMO_MEGATRON_MODEL_PARALLEL_APPSTATE_OVERRIDE, GradScaler
 from nemo.collections.nlp.parts.utils_funcs import activation_to_func
 from nemo.core.optim import MainParamsOptimizerWrapper, prepare_lr_scheduler
-from nemo.utils import AppState, logging, str_to_dtype
+from nemo.utils import AppState, logging, str_to_dtype, get_xla_model
 from nemo.utils.get_rank import is_global_rank_zero
 
 try:
@@ -79,6 +80,7 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ["MegatronBaseModel"]
 
+xm = get_xla_model()
 
 class MegatronBaseModel(NLPModel):
     """
@@ -699,9 +701,14 @@ class MegatronBaseModel(NLPModel):
             grads = [param.grad.data for param in bucket]
             coalesced = torch._utils._flatten_dense_tensors(grads)
             coalesced /= parallel_state.get_data_parallel_world_size(with_context_parallel=True)
-            torch.distributed.all_reduce(
-                coalesced, group=parallel_state.get_data_parallel_group(with_context_parallel=True)
-            )
+            if xm:
+                xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
+                                groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 
+                                pin_layout=False)
+            else:
+                torch.distributed.all_reduce(
+                    coalesced, group=parallel_state.get_data_parallel_group(with_context_parallel=True)
+                )
             for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
                 buf.copy_(synced)
 
@@ -1118,9 +1125,14 @@ class MegatronBaseModel(NLPModel):
                 num_parameters_on_device -= num_word_embedding_parameters
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda()
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(device=get_current_device())
 
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                            groups=parallel_state.get_model_parallel_groups(), 
+                                pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         return num_parameters_on_device, total_num_parameters
 
@@ -1171,8 +1183,13 @@ class MegatronBaseModel(NLPModel):
             num_parameters_on_device -= num_rpe_params
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda()
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(device=get_current_device())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                            groups=parallel_state.get_model_parallel_groups(), 
+                                pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
         return num_parameters_on_device, total_num_parameters
 
     def build_model_parallel_config(self) -> ModelParallelConfig:
@@ -1334,7 +1351,7 @@ class MegatronBaseModel(NLPModel):
             self.model = self.trainer.strategy._setup_model(self.model)
             # Move the CPU-initialized model (with `use_cpu_initialization=True`) to GPU, which is to avoid
             # out-of-memory carash before sharding. In case of GPU-initialized model, this is no-op.
-            self.model = self.model.cuda(torch.cuda.current_device())
+            self.model = self.model.cuda(get_current_device())
 
     def megatron_timer_start(self, name, log_level):
         if self.megatron_timers:

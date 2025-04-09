@@ -15,6 +15,7 @@
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Dict, Optional
 
+from nemo.utils import get_current_device
 import packaging
 import torch
 import torch.nn.functional as F
@@ -69,7 +70,7 @@ class NF4Weight(nn.Parameter):
         return self._nf4_quantizer(self.quantized_data)
 
     def cuda(self, device=None, non_blocking=False):
-        return self.to(device="cuda" if device is None else device, non_blocking=non_blocking)
+        return self.to(device=device if device else get_current_device(), non_blocking=non_blocking)
 
     def to(self, *args, **kwargs):
         device, dtype, non_blocking, convert_to_format = torch._C._nn._parse_to(*args, **kwargs)
@@ -105,7 +106,7 @@ class _LinearNF4(torch.autograd.Function):
 
 
 def nf4_quantize(x: torch.Tensor):
-    return NF4Weight(x).cuda()
+    return NF4Weight(x).to(device=get_current_device())
 
 
 class NF4LinearWrapper(nn.Module):

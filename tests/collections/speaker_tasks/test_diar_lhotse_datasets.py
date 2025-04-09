@@ -17,6 +17,7 @@ import os
 import tempfile
 from unittest import mock
 
+from nemo.utils import get_current_device
 import pytest
 import torch
 import torch.cuda
@@ -126,7 +127,7 @@ class TestLhotseAudioToSpeechE2ESpkDiarDataset:
     def test_e2e_speaker_diar_lhotse_dataset(self, test_data_dir, batch_size, num_workers, split):
         manifest_path = os.path.abspath(os.path.join(test_data_dir, 'asr/diarizer/lsm_val.json'))
         num_samples = 8
-        device = 'gpu' if torch.cuda.is_available() else 'cpu'
+        device = get_current_device()
         data_dict_list = []
         with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8') as f:
             with open(manifest_path, 'r', encoding='utf-8') as mfile:

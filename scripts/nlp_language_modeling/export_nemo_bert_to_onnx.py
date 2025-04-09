@@ -16,6 +16,7 @@
 import os
 from argparse import ArgumentParser
 
+from nemo.utils import get_current_device
 import torch
 from omegaconf import OmegaConf
 
@@ -65,7 +66,7 @@ def export(args):
 
     # Tokenize the input texts
     batch_dict = hf_tokenizer(input_texts, max_length=512, padding=True, truncation=True, return_tensors='pt')
-    batch_dict_cuda = {k: v.cuda() for k, v in batch_dict.items()}
+    batch_dict_cuda = {k: v.to(device=get_current_device()) for k, v in batch_dict.items()}
     model = model.eval()
 
     input_names = ["input_ids", "attention_mask", "token_type_ids"]

@@ -97,7 +97,7 @@ def main():
     asr_model.preprocessor.featurizer.dither = 0.0
     asr_model.preprocessor.featurizer.pad_to = 0
     if can_gpu:
-        asr_model = asr_model.cuda()
+        asr_model = asr_model.to(device=get_current_device())
     asr_model.eval()
 
     # Enable calibrators
@@ -111,7 +111,7 @@ def main():
 
     for i, test_batch in enumerate(asr_model.test_dataloader()):
         if can_gpu:
-            test_batch = [x.cuda() for x in test_batch]
+            test_batch = [x.to(device=get_current_device()) for x in test_batch]
             with torch.amp.autocast(asr_model.device.type, enabled=args.amp):
                 _ = asr_model(input_signal=test_batch[0], input_signal_length=test_batch[1])
         if i >= args.num_calib_batch:
@@ -144,7 +144,7 @@ def compute_amax(model, **kwargs):
                     module.load_calib_amax(**kwargs)
             print(F"{name:40}: {module}")
     if can_gpu:
-        model.cuda()
+        model.to(device=get_current_device())
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@
 from pathlib import Path
 from typing import Optional
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from huggingface_hub import get_token as get_hf_token
@@ -44,7 +45,7 @@ class CausalVideoTokenizer(ModelPT):
         self._dec_model_path = str(checkpoint / "decoder.jit")
         self._dtype = getattr(torch, cfg.dtype)
 
-        self._device = "cuda"
+        self._device = get_current_device()
 
         if cfg.use_pytorch:
             tokenizer_config = get_tokenizer_config(cfg.tokenizer_type)

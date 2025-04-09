@@ -22,6 +22,7 @@ from collections import OrderedDict
 from typing import Tuple
 
 
+from nemo.utils import get_current_device
 import pytest
 import torch
 from megatron.core.datasets.megatron_tokenizer import MegatronTokenizer
@@ -809,7 +810,7 @@ def test_packed_partial_tag_subsequence_pretag_middletag_bs3_cuda(tag_tokens):
     expected_mask = torch.stack([expected_mask, expected_mask, expected_mask2])
 
     mask = Evo2DatasetPadEodLossMask.mask_phylogenetic_tags(
-        tokenized_sequence=torch.stack([sequence, sequence, sequence2]).cuda(),
+        tokenized_sequence=torch.stack([sequence, sequence, sequence2]).to(device=get_current_device()),
         terminal_tag_char=tag_tokens["terminal"],
         other_tag_chars=tag_tokens["other_chars"],
         eod_token_id=tag_tokens["eod"],

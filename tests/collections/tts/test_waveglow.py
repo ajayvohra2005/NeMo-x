@@ -15,6 +15,7 @@
 import os
 import tempfile
 
+from nemo.utils import get_current_device
 import pytest
 import torch
 from omegaconf import DictConfig
@@ -49,8 +50,8 @@ wcfg = DictConfig({"waveglow": mcfg, "sigma": 1.0, "preprocessor": pcfg,})
 
 
 def input_example(sz):
-    mel = torch.randn(1, 1, 80, sz).cuda().half()
-    z = torch.randn(1, 8, sz * 256 // 8, 1).cuda().half()
+    mel = torch.randn(1, 1, 80, sz).to(device=get_current_device()).half()
+    z = torch.randn(1, 8, sz * 256 // 8, 1).to(device=get_current_device()).half()
     return (
         mel,
         z,
@@ -75,7 +76,7 @@ class TestWaveGlow:
     @pytest.mark.unit
     def test_export_to_onnx(self):
         model = WaveGlowModel(wcfg)
-        model = model.cuda().half()
+        model = model.to(device=get_current_device()).half()
         typecheck.set_typecheck_enabled(enabled=False)
         with tempfile.TemporaryDirectory() as tmpdir, model.nemo_infer():
             tmp_file_name = os.path.join(tmpdir, "waveglow.onnx")

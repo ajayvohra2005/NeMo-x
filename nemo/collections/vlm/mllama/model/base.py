@@ -45,7 +45,7 @@ from nemo.collections.vlm.neva.model.base import MODEL_CONFIG_ATTR
 from nemo.lightning import get_vocab_size, io
 from nemo.lightning.megatron_parallel import MaskedTokenLossReduction
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device
 
 
 def mllama_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
@@ -89,7 +89,7 @@ def mllama_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
         )
 
     _batch = {
-        key: val.cuda(non_blocking=True) if key in required_keys and isinstance(val, torch.Tensor) else val
+        key: val.to(get_current_device()) if key in required_keys and isinstance(val, torch.Tensor) else val
         for key, val in _batch.items()
     }
     # slice batch along sequence dimension for context parallelism
@@ -406,7 +406,7 @@ class MLlamaBaseModel(MegatronModule):
         )
         cross_attention_masks, full_text_row_masked_out_mask = _generate_cross_attention_mask(
             text_token_count=total_len,
-            text_device="cuda",
+            text_device=None,
             text_dtype=next(self.language_model.parameters()).dtype,
             vision_tokens=vision_tokens,
             cross_attention_masks=padded_masks,
@@ -449,7 +449,7 @@ class MLlamaBaseModel(MegatronModule):
                 if skip_vision_encoder:
                     vision_tokens = torch.zeros(
                         vision_orig_shape,
-                        device="cuda",
+                        device=None,
                         dtype=torch.bfloat16,
                     )
                 else:

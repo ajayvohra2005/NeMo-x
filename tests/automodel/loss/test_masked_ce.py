@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from nemo.utils import get_current_device
 import pytest
 import torch
 import torch.nn.functional as F
@@ -62,7 +63,7 @@ def test_masked_cross_entropy_with_mask():
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 def test_masked_cross_entropy_gpu():
     # Same test as above, but on GPU
-    device = torch.device("cuda")
+    device = get_current_device()
     batch_size = 4
     num_classes = 3
     torch.manual_seed(0)

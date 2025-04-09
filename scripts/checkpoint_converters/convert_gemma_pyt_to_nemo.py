@@ -26,6 +26,7 @@ import contextlib
 import os
 from argparse import ArgumentParser
 
+from nemo.utils import get_current_device
 import torch
 from gemma.config import get_config_for_2b, get_config_for_7b
 from gemma.model import CausalLM
@@ -217,7 +218,7 @@ def convert(args):
     if args.tokenizer_path is not None:
         pyt_config.tokenizer = args.tokenizer_path
 
-    device = torch.device("cuda")
+    device = get_current_device()
     pyt_config.dtype = "bfloat16" if args.precision == "bf16" else "float32"
 
     with _set_default_tensor_type(pyt_config.get_dtype()):

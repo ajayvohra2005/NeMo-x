@@ -16,6 +16,7 @@ import math
 from dataclasses import dataclass
 from typing import Union
 
+from nemo.utils import get_current_device
 import torch
 import torch._dynamo
 from accelerated_scan.triton import scan
@@ -396,7 +397,7 @@ class RecurrentLayer(MegatronModule):
 
     def forward(self, hidden_states, attention_mask=None, rotary_pos_emb=None):
 
-        segment_pos = torch.arange(hidden_states.shape[0]).unsqueeze(0).repeat(hidden_states.shape[1], 1).cuda()
+        segment_pos = torch.arange(hidden_states.shape[0]).unsqueeze(0).repeat(hidden_states.shape[1], 1).to(device=get_current_device())
         in_intermidiate_parallel, in_bias_parallel = self.linear_in(hidden_states)
 
         x_bias_parallel, y_bias_parallel = in_bias_parallel.chunk(2, dim=-1)

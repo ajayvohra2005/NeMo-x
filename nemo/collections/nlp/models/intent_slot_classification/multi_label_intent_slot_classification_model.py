@@ -15,6 +15,7 @@
 import os
 from typing import List, Optional, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import numpy.typing as npt
 import torch
@@ -272,7 +273,7 @@ class MultiLabelIntentSlotClassificationModel(IntentSlotClassificationModel):
 
         mode = self.training
         try:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            device = get_current_device()
 
             # Switch model to evaluation mode
             self.eval()
@@ -399,7 +400,7 @@ class MultiLabelIntentSlotClassificationModel(IntentSlotClassificationModel):
 
         mode = self.training
         try:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            device = get_current_device()
 
             # Retrieve intent and slot vocabularies from configuration.
             intent_labels = self.cfg.data_desc.intent_labels

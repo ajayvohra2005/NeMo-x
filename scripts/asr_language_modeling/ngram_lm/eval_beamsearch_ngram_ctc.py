@@ -98,7 +98,7 @@ class EvalBeamSearchNGramConfig:
     # Parameters for inference
     acoustic_batch_size: int = 16  # The batch size to calculate log probabilities
     beam_batch_size: int = 128  # The batch size to be used for beam search decoding
-    device: str = "cuda"  # The device to load the model onto to calculate log probabilities
+    device: torch.device = None  # The device to load the model onto to calculate log probabilities
     use_amp: bool = False  # Whether to use AMP if available to calculate log probabilities
 
     # Beam Search hyperparameters
@@ -314,7 +314,7 @@ def main(cfg: EvalBeamSearchNGramConfig):
             )
     else:
 
-        with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
+        with torch.autocast(asr_model.device.type, enabled=cfg.use_amp):
             with torch.no_grad():
                 if isinstance(asr_model, EncDecHybridRNNTCTCModel):
                     asr_model.cur_decoder = 'ctc'

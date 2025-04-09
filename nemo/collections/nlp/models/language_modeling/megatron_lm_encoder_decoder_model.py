@@ -17,6 +17,7 @@ import functools
 import inspect
 from typing import Any, Dict, List, Optional
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.accelerators import CPUAccelerator
 from lightning.pytorch.loops.fetchers import _DataFetcherWrapper
@@ -43,7 +44,7 @@ from nemo.collections.nlp.modules.common.text_generation_utils import (
     get_sampling_token_fn,
 )
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import AppState, logging
+from nemo.utils import AppState, logging, get_xla_model
 
 try:
     from megatron.core import parallel_state, tensor_parallel
@@ -84,6 +85,7 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ["MegatronLMEncoderDecoderModel"]
 
+xm = get_xla_model()
 
 class MegatronLMEncoderDecoderModel(MegatronBaseModel):
     """
@@ -143,9 +145,9 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                 # allocated on the same device with matching data type
                 if isinstance(self.enc_dec_model, list):
                     for module in self.enc_dec_model:
-                        module.cuda(torch.cuda.current_device())
+                        module.cuda(get_current_device())
                 else:
-                    self.enc_dec_model.cuda(torch.cuda.current_device())
+                    self.enc_dec_model.cuda(get_current_device())
 
             # Model wrapper to convert both model and inputs to half precision
             self._wrap_model_for_O2()
@@ -415,7 +417,7 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     [loss_reduced[k] for loss_reduced in losses_reduced_per_micro_batch]
                 ).mean()
         else:
-            loss_mean = torch.tensor(0.0).cuda()
+            loss_mean = torch.tensor(0.0).to(device=get_current_device())
             mean_loss_dict = {"loss": loss_mean}
 
         return mean_loss_dict
@@ -569,7 +571,12 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
             grads = [param.grad.data for param in bucket]
             coalesced = torch._utils._flatten_dense_tensors(grads)
             coalesced /= parallel_state.get_data_parallel_world_size()
-            torch.distributed.all_reduce(coalesced, group=parallel_state.get_data_parallel_group())
+            if xm:
+                xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
+                            groups=parallel_state.get_data_parallel_groups(), 
+                                pin_layout=False)
+            else:
+                torch.distributed.all_reduce(coalesced, group=parallel_state.get_data_parallel_group())
             for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
                 buf.copy_(synced)
 
@@ -592,7 +599,12 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     grad = word_embeddings_weight.main_grad
                 else:
                     grad = word_embeddings_weight.grad
-                torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
+                if xm:
+                    xm.all_reduce(xm.REDUCE_SUM, [grad], 
+                                groups=parallel_state.get_embedding_groups(), 
+                                pin_layout=False)
+                else:
+                    torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
             else:
                 raise ValueError(
                     "Attempting to allreduce word_embeddings for pipeline parallel size > 1, but "
@@ -613,7 +625,12 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     grad = position_embeddings_weight.main_grad
                 else:
                     grad = position_embeddings_weight.grad
-                torch.distributed.all_reduce(grad, group=parallel_state.get_position_embedding_group())
+                if xm:
+                    xm.all_reduce(xm.REDUCE_SUM, [grad], 
+                                groups=parallel_state.get_position_embedding_groups(), 
+                                pin_layout=False)
+                else:
+                    torch.distributed.all_reduce(grad, group=parallel_state.get_position_embedding_group())
 
         # All-reduce relative position embeddings for T5.
         if (
@@ -632,9 +649,14 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     grad = position_embeddings_weight.main_grad
                 else:
                     grad = position_embeddings_weight.grad
-                torch.distributed.all_reduce(
-                    grad, group=parallel_state.get_encoder_relative_position_embedding_group()
-                )
+                if xm:
+                    xm.all_reduce(xm.REDUCE_SUM, [grad], 
+                                groups=parallel_state.get_position_embedding_groups(), 
+                                pin_layout=False)
+                else:
+                    torch.distributed.all_reduce(
+                        grad, group=parallel_state.get_encoder_relative_position_embedding_group()
+                    )
 
             # For split rank == pipeline_world_size - 1, we have only one decoder
             # rank and so we don't need to allreduce.
@@ -647,9 +669,14 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     grad = position_embeddings_weight.main_grad
                 else:
                     grad = position_embeddings_weight.grad
-                torch.distributed.all_reduce(
-                    grad, group=parallel_state.get_decoder_relative_position_embedding_group()
-                )
+                if xm:
+                    xm.all_reduce(xm.REDUCE_SUM, [grad], 
+                            groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
+                            pin_layout=False)
+                else:
+                    torch.distributed.all_reduce(
+                        grad, group=parallel_state.get_decoder_relative_position_embedding_group()
+                    )
 
                 # If the model also has separate RPE weights for decoder cross-attention, allreduce those as well.
                 if not self.cfg.decoder.get('relative_position_bias_self_attention_only', True):
@@ -660,9 +687,14 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                         grad = position_embeddings_weight.main_grad
                     else:
                         grad = position_embeddings_weight.grad
-                    torch.distributed.all_reduce(
-                        grad, group=parallel_state.get_decoder_relative_position_embedding_group()
-                    )
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_SUM, [grad], 
+                                groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
+                                pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(
+                            grad, group=parallel_state.get_decoder_relative_position_embedding_group()
+                        )
 
     def _process_batch(self, global_batch: Dict[str, torch.Tensor]) -> List[torch.Tensor]:
         # If the decoder input starts with <pad> instead of <bos>, which is the case for huggingface
@@ -693,7 +725,7 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
             if isinstance(batch, dict):
                 # convert to list if not already converted.
                 batch = self._process_batch(batch)
-            batch = [x.cuda(non_blocking=True) if torch.is_tensor(x) else x for x in batch]
+            batch = [x.to(get_current_device()) if torch.is_tensor(x) else x for x in batch]
             (
                 encoder_input_ids,
                 decoder_input_ids,
@@ -828,7 +860,7 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                 batch, _, _ = next(dataloader_iter)
             else:
                 batch = next(dataloader_iter)
-            batch = [x.cuda(non_blocking=True) if torch.is_tensor(x) else x for x in batch]
+            batch = [x.to(get_current_device()) if torch.is_tensor(x) else x for x in batch]
 
             # processing forward args for mcore T5
             if self.mcore_t5:
@@ -952,7 +984,7 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
         else:
             # if we are here we assume that only loss is available and hidden transforms are disabled
             # (since not supported in pipleline parallel)
-            averaged_loss = {'loss': torch.tensor(0.0).cuda()}
+            averaged_loss = {'loss': torch.tensor(0.0).to(device=get_current_device())}
 
         # we can only log on one rank if it is rank zero so we broadcast from last rank
         for k, v in averaged_loss.items():
@@ -1344,7 +1376,7 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
         if output_tensor:
             output_tensor = output_tensor[0]['hiddens']
         else:
-            output_tensor = torch.zeros(tensor_shape, dtype=self.autocast_dtype).cuda()
+            output_tensor = torch.zeros(tensor_shape, dtype=self.autocast_dtype).to(device=get_current_device())
 
         if self.cfg.get('pipeline_model_parallel_size', 1) > 1:
             # Broadcast from the last pipeline stage to all other model-parallel ranks.
@@ -1635,10 +1667,10 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                 predicted_tokens_dec = torch.zeros(
                     (predicted_tokens_dec.shape[0], predicted_tokens_dec.shape[1] + 1),
                     dtype=predicted_tokens_dec.dtype,
-                ).cuda()
+                ).to(device=get_current_device())
                 predicted_log_probs = torch.zeros(
                     (predicted_log_probs.shape[0], predicted_log_probs.shape[1] + 1), dtype=self.autocast_dtype
-                ).cuda()
+                ).to(device=get_current_device())
 
             if self.cfg.get('pipeline_model_parallel_size', 1) > 1:
                 # Broadcast from the last pipeline stage to all other model-parallel ranks.

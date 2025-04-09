@@ -14,6 +14,7 @@
 
 import os
 
+from nemo.utils import get_current_device
 import pytest
 import torch
 
@@ -26,13 +27,7 @@ class TestNeuralDiarizerInference:
         "device",
         [
             torch.device("cpu"),
-            pytest.param(
-                torch.device("cuda"),
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(),
-                    reason='CUDA required for test.',
-                ),
-            ),
+            get_current_device()
         ],
     )
     @pytest.mark.parametrize("num_speakers", [None, 1])

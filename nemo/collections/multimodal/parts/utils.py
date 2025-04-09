@@ -15,6 +15,7 @@ import os
 import tempfile
 from typing import Any, Callable, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from lightning.pytorch import Trainer
@@ -111,10 +112,7 @@ def load_nemo_model_weights(nemo_path, sharded_state_dict=None):
     """
     Shared method to load model weights from a given nemo_path.
     """
-    if torch.cuda.is_available():
-        map_location = torch.device('cuda')
-    else:
-        map_location = torch.device('cpu')
+    map_location = get_current_device()
 
     save_restore_connector = NLPSaveRestoreConnector()
     cwd = os.getcwd()
@@ -248,7 +246,7 @@ def setup_trainer_and_models_for_inference(
         trainer.strategy.launcher.launch(dummy, trainer=trainer)
     trainer.strategy.setup_environment()
 
-    models = [model.cuda() for model in models]  # move the model to the GPU
+    models = [model.to(device=get_current_device()) for model in models]  # move the model to the GPU
     for model in models:
         model.eval().requires_grad_(False)  # set the model to evaluation mode and disable gradients
 
@@ -353,7 +351,7 @@ def setup_trainer_and_model_for_inference(
         trainer.strategy.launcher.launch(dummy, trainer=trainer)
     trainer.strategy.setup_environment()
 
-    model = model.cuda()  # move the model to the GPU
+    model = model.to(device=get_current_device())  # move the model to the GPU
     model.eval().requires_grad_(False)  # set the model to evaluation mode and disable gradients
 
     # Return the trainer and model objects.

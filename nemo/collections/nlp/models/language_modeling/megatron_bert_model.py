@@ -16,6 +16,7 @@ import itertools
 import queue
 from typing import Any, Dict, Iterator, List, Optional
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn.functional as F
 from lightning.pytorch.trainer.trainer import Trainer
@@ -44,7 +45,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.neural_types import ChannelType, MaskType, NeuralType
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 try:
     import logging
@@ -75,6 +76,7 @@ except (ImportError, ModuleNotFoundError):
     logging.warning("Megatron num_microbatches_calculator not found, using Apex version.")
     from apex.transformer.pipeline_parallel.utils import get_num_microbatches
 
+xm = get_xla_model()
 
 class MegatronBertModel(MegatronBaseModel):
     """
@@ -129,9 +131,9 @@ class MegatronBertModel(MegatronBaseModel):
                 # to have master parameters allocated on the same device with matching data type
                 if isinstance(self.model, list):
                     for module in self.model:
-                        module.cuda(torch.cuda.current_device())
+                        module.cuda(get_current_device())
                 else:
-                    self.model.cuda(torch.cuda.current_device())
+                    self.model.cuda(get_current_device())
 
             # Model wrapper to convert both model and inputs to half precision
             self._wrap_model_for_O2()
@@ -230,30 +232,30 @@ class MegatronBertModel(MegatronBaseModel):
             if parallel_state.get_pipeline_model_parallel_world_size() == 1:
                 batch, batch_idx, dataloader_idx = next(dataloader_iter)
                 tokens, types, sentence_order, loss_mask, lm_labels, padding_mask = (
-                    batch['text'].cuda(non_blocking=True),
-                    batch['types'].cuda(non_blocking=True),
-                    batch['is_random'].cuda(non_blocking=True),
-                    batch['loss_mask'].cuda(non_blocking=True),
-                    batch['labels'].cuda(non_blocking=True),
-                    batch['padding_mask'].cuda(non_blocking=True),
+                    batch['text'].to(get_current_device()),
+                    batch['types'].to(get_current_device()),
+                    batch['is_random'].to(get_current_device()),
+                    batch['loss_mask'].to(get_current_device()),
+                    batch['labels'].to(get_current_device()),
+                    batch['padding_mask'].to(get_current_device()),
                 )
             else:
                 batch, batch_idx, dataloader_idx = next(dataloader_iter)
                 if parallel_state.is_pipeline_first_stage():
-                    tokens = batch['text'].cuda(non_blocking=True)
-                    types = batch['types'].cuda(non_blocking=True)
-                    sentence_order = batch['is_random'].cuda(non_blocking=True)
-                    padding_mask = batch['padding_mask'].cuda(non_blocking=True)
+                    tokens = batch['text'].to(get_current_device())
+                    types = batch['types'].to(get_current_device())
+                    sentence_order = batch['is_random'].to(get_current_device())
+                    padding_mask = batch['padding_mask'].to(get_current_device())
                     loss_mask, lm_labels = None, None
                 elif parallel_state.is_pipeline_last_stage():
-                    loss_mask = batch['loss_mask'].cuda(non_blocking=True)
-                    lm_labels = batch['labels'].cuda(non_blocking=True)
-                    sentence_order = batch['is_random'].cuda(non_blocking=True)
-                    padding_mask = batch['padding_mask'].cuda(non_blocking=True)
+                    loss_mask = batch['loss_mask'].to(get_current_device())
+                    lm_labels = batch['labels'].to(get_current_device())
+                    sentence_order = batch['is_random'].to(get_current_device())
+                    padding_mask = batch['padding_mask'].to(get_current_device())
                     tokens, types = None, None
                 else:
-                    padding_mask = batch['padding_mask'].cuda(non_blocking=True)
-                    sentence_order = batch['is_random'].cuda(non_blocking=True)
+                    padding_mask = batch['padding_mask'].to(get_current_device())
+                    sentence_order = batch['is_random'].to(get_current_device())
                     tokens, types, loss_mask, lm_labels = None, None, None, None
 
             dataloader_iter._dataloader_idx = dataloader_idx
@@ -390,9 +392,9 @@ class MegatronBertModel(MegatronBaseModel):
             loss_mean = loss_tensor.mean(axis=0)
         else:
             if self.cfg.bert_binary_head == True:
-                loss_mean = torch.tensor([0.0, 0.0, 0.0]).cuda()
+                loss_mean = torch.tensor([0.0, 0.0, 0.0]).to(device=get_current_device())
             else:
-                loss_mean = torch.tensor([0.0, 0.0]).cuda()
+                loss_mean = torch.tensor([0.0, 0.0]).to(device=get_current_device())
 
         # when using sequence parallelism, the sequence parallel layernorm grads must be all-reduced
         if self.cfg.get('tensor_model_parallel_size', 1) > 1 and self.cfg.get('sequence_parallel', False):
@@ -532,7 +534,12 @@ class MegatronBertModel(MegatronBaseModel):
                     grad = word_embeddings_weight.main_grad
                 else:
                     grad = word_embeddings_weight.grad
-                torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
+                if xm:
+                    xm.all_reduce(xm.REDUCE_SUM, [grad], 
+                                    groups=parallel_state.get_embedding_groups(), 
+                                        pin_layout=False)
+                else:
+                    torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
 
     def validation_step(self, dataloader_iter):
         """Run validation step."""
@@ -559,7 +566,7 @@ class MegatronBertModel(MegatronBaseModel):
             loss_tensor = torch.vstack(loss_tensors_list)
             loss_mean = loss_tensor.mean(axis=0)
         else:
-            loss_mean = torch.tensor([0.0]).cuda()
+            loss_mean = torch.tensor([0.0]).to(device=get_current_device())
 
         loss = loss_mean[0]
         self.validation_step_outputs.append(loss) if prefix == 'val' else self.test_step_outputs.append(loss)
@@ -570,7 +577,7 @@ class MegatronBertModel(MegatronBaseModel):
         if parallel_state.is_pipeline_last_stage():
             averaged_loss = torch.stack(self.validation_step_outputs).mean()
         else:
-            averaged_loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+            averaged_loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())
 
         torch.distributed.broadcast(averaged_loss, get_last_rank())
 
@@ -890,7 +897,12 @@ class MegatronBertModel(MegatronBaseModel):
             self._append_sequence_parallel_module_grads(self.model, grads)
 
         coalesced = torch._utils._flatten_dense_tensors(grads)
-        torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
+                            groups=parallel_state.get_tensor_model_parallel_groups(), 
+                                pin_layout=False)
+        else:
+            torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
             buf.copy_(synced)
 

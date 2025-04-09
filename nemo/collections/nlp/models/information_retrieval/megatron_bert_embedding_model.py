@@ -15,6 +15,7 @@
 import logging
 import os
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
@@ -42,7 +43,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
     average_losses_across_data_parallel_group,
 )
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -64,6 +65,8 @@ except (ImportError, ModuleNotFoundError):
     logging.warning("Megatron num_microbatches_calculator not found, using Apex version.")
     from apex.transformer.pipeline_parallel.utils import get_num_microbatches
 
+
+xm = get_xla_model()
 
 def listify(tensor):
     l_tensor = []
@@ -451,9 +454,9 @@ class MegatronBertEmbeddingModel(MegatronBertModel):
             loss_mean = loss_tensor.mean(axis=0)
         else:
             if self.cfg.bert_binary_head == True:
-                loss_mean = torch.tensor([0.0, 0.0, 0.0]).cuda()
+                loss_mean = torch.tensor([0.0, 0.0, 0.0]).to(device=get_current_device())
             else:
-                loss_mean = torch.tensor([0.0, 0.0]).cuda()
+                loss_mean = torch.tensor([0.0, 0.0]).to(device=get_current_device())
 
         # when using sequence parallelism, the sequence parallel layernorm grads must be all-reduced
         if self.cfg.get('tensor_model_parallel_size', 1) > 1 and self.cfg.get('sequence_parallel', False):
@@ -504,7 +507,7 @@ class MegatronBertEmbeddingModel(MegatronBertModel):
 
             batches, _, dl_idx = next(dataloader_iter)
             metadata = batches.pop('metadata')
-            batches = {k: v.cuda(non_blocking=True) for k, v in batches.items()}
+            batches = {k: v.to(get_current_device()) for k, v in batches.items()}
 
             if self.mcore_bert:
 
@@ -567,7 +570,7 @@ class MegatronBertEmbeddingModel(MegatronBertModel):
             loss_tensor = torch.vstack(loss_tensors_list)
             loss_mean = loss_tensor.mean(axis=0)
         else:
-            loss_mean = torch.tensor([0.0]).cuda()
+            loss_mean = torch.tensor([0.0]).to(device=get_current_device())
 
         loss = loss_mean[0]
         if prefix == 'val':
@@ -596,7 +599,8 @@ class MegatronBertEmbeddingModel(MegatronBertModel):
                 }
                 for batch in output
             ],
-            group=parallel_state.get_data_parallel_group(),
+            group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
         )
 
         # Remove duplicate examples due to distributed sampler.

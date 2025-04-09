@@ -38,6 +38,7 @@ from types import MethodType
 from typing import Any, Dict
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import LightningModule
 from lightning.pytorch.callbacks import Callback
@@ -59,7 +60,7 @@ def struct_copy_one(src):
     elif isinstance(src, dict):
         return {k: struct_copy_one(src[k]) for k in src}
     elif isinstance(src, torch.Tensor):
-        return src.clone().detach().cuda()
+        return src.clone().detach().to(device=get_current_device())
     else:
         return src
 

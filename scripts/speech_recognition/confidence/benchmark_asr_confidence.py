@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 from omegaconf import MISSING, OmegaConf
 from sklearn.model_selection import ParameterGrid
@@ -164,7 +165,7 @@ def main(cfg: ConfidenceBenchmarkingConfig):
         device = [cfg.cuda]
         accelerator = 'gpu'
 
-    map_location = torch.device('cuda:{}'.format(device[0]) if accelerator == 'gpu' else 'cpu')
+    map_location = get_current_device()
 
     # setup model
     if cfg.model_path is not None:

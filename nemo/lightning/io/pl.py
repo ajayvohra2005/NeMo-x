@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Generic, Optional, TypeVar, Union
 
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 from lightning.fabric.plugins import CheckpointIO
 from lightning.fabric.utilities.cloud_io import get_filesystem
@@ -431,7 +432,7 @@ class MegatronCheckpointIO(AsyncCompatibleCheckpointIO, IOMixin):
 def _fix_tensors_device(ckpt: Dict) -> Dict:
     """Ensure checkpoint tensors are on the correct device."""
     assert torch.cuda.is_initialized(), (torch.cuda.is_available(), torch.cuda.is_initialized())
-    cur_dev = torch.device("cuda", index=torch.cuda.current_device())
+    cur_dev = get_current_device()
     from megatron.core.dist_checkpointing.dict_utils import dict_list_map_outplace
 
     def _fix_device(t):

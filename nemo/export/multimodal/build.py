@@ -21,6 +21,7 @@ from pathlib import Path
 from time import time
 from typing import List
 
+from nemo.utils import get_current_device
 import tensorrt as trt
 import torch
 import yaml
@@ -300,7 +301,7 @@ def build_neva_engine(
     vision_max_batch_size: int = 1,
 ):
     """Build neva visual engine"""
-    device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
+    device = get_current_device()
 
     if os.path.isdir(visual_checkpoint_path):
         # load untar checkpoint
@@ -446,7 +447,7 @@ def build_video_neva_engine(
     vision_max_batch_size: int = 1,
 ):
     """Build video neva visual engine"""
-    device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
+    device = get_current_device()
     # extract NeMo checkpoint
     with tarfile.open(visual_checkpoint_path) as tar:
         nemo_config = yaml.safe_load(tar.extractfile("./model_config.yaml"))

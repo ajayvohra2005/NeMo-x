@@ -27,7 +27,7 @@ from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
     MegatronPretrainingRandomSampler,
     MegatronPretrainingSampler,
 )
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -38,6 +38,7 @@ except (ImportError, ModuleNotFoundError):
 
     HAVE_MEGATRON_CORE = False
 
+xm = get_xla_model()
 
 class LatentDiffusionEdit(LatentDiffusion):
     def init_from_ckpt(
@@ -167,9 +168,14 @@ class MegatronLatentDiffusionEdit(MegatronLatentDiffusion):
             num_parameters_on_device = sum([p.nelement() for p in self.model.parameters()])
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda(non_blocking=True)
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
 
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                          groups=parallel_state.get_model_parallel_groups(), 
+                          pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

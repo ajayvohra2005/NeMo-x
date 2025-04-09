@@ -36,7 +36,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import get_iterator_k_sp
 from nemo.collections.nlp.modules.common.text_generation_utils import generate, get_computeprob_response
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import AppState, logging
+from nemo.utils import AppState, logging, get_xla_model, get_current_device
 
 try:
     from megatron.core import parallel_state
@@ -71,6 +71,7 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ['MegatronGPTSFTModel']
 
+xm = get_xla_model()
 
 class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
     """
@@ -438,7 +439,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 loss_sum = (
                     torch.vstack(loss_sum_tensors_list).sum(axis=0)
                     if len(loss_sum_tensors_list) > 0
-                    else torch.tensor([0.0, 0.0]).cuda()
+                    else torch.tensor([0.0, 0.0]).to(device=get_current_device())
                 )
                 return loss_sum
         else:
@@ -446,7 +447,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0).cuda()
+                loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
         # if forward_only:
         # return loss_mean
@@ -527,7 +528,8 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 {'preds': x['preds'], 'labels': x['labels'], 'inputs': x['inputs'], 'metadata': x['metadata']}
                 for x in output
             ],
-            group=parallel_state.get_data_parallel_group(),
+             group=parallel_state.get_data_parallel_group() if not xm else \
+                    parallel_state.get_data_parallel_group_gloo()
         )
 
         # Remove duplicate examples due to distributed sampler.
@@ -623,9 +625,9 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                     # Compute the avg loss by total_loss across all samples / total number of samples
                     total_loss_and_total_samples = torch.vstack(loss_vals).sum(axis=0)
                     avg_loss = total_loss_and_total_samples[0] / total_loss_and_total_samples[1]
-                    loss = avg_loss.type(torch.float32).cuda()
+                    loss = avg_loss.type(torch.float32).to(device=get_current_device())
             else:
-                loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+                loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())
 
             # we can only log on one rank if it is rank zero so we broadcast from last rank
             torch.distributed.broadcast(loss, get_last_rank())
@@ -707,7 +709,7 @@ class MegatronGPTSFTModel(NLPAdapterModelMixin, MegatronGPTModel):
                 inference_config['inputs'] = batch
             else:
                 # peft_eval.py
-                inference_config['inputs'] = (batch['contexts'].cuda(), batch['context_lengths'].cuda())
+                inference_config['inputs'] = (batch['contexts'].to(device=get_current_device()), batch['context_lengths'].to(device=get_current_device()))
             response = generate(self, **inference_config)
 
         app_state = AppState()

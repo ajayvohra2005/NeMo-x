@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Optional, Tuple
 
 import mcubes
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn as nn
@@ -322,7 +323,7 @@ class NeRFBase(nn.Module):
         xx, yy, zz = np.meshgrid(x, y, z)
 
         grid = np.stack((xx, yy, zz), axis=-1)  # Shape (resolution, resolution, resolution, 3)
-        torch_grid = torch.tensor(grid, dtype=torch.float32).reshape(-1, 3).to(device="cuda")
+        torch_grid = torch.tensor(grid, dtype=torch.float32).reshape(-1, 3).to(device=get_current_device())
 
         def batch_process(fn, input, batch_size):
             num_points = input.shape[0]
@@ -354,7 +355,7 @@ class NeRFBase(nn.Module):
         mesh.vertices = scaled_vertices
 
         # Assigning color to vertices
-        scaled_vertices_torch = torch.tensor(scaled_vertices, dtype=torch.float32).to(device="cuda")
+        scaled_vertices_torch = torch.tensor(scaled_vertices, dtype=torch.float32).to(device=get_current_device())
         color = batch_process(fn=self.forward_features, input=scaled_vertices_torch, batch_size=batch_size)
         color = (color * 255).astype(np.uint8)
         mesh.visual.vertex_colors = color

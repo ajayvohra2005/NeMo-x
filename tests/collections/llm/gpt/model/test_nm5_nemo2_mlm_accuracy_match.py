@@ -16,6 +16,7 @@
 import random
 
 import megatron.core.parallel_state as ps
+from nemo.utils import get_current_device
 import torch
 import torch.distributed as dist
 from megatron.core.models.mamba.mamba_model import MambaModel
@@ -120,8 +121,8 @@ if __name__ == "__main__":
 
     ##########
     data = [random.randint(0, 100000) for _ in range(args.sequence_length)]
-    input_ids = torch.tensor(data, dtype=torch.int64).repeat((args.micro_batch_size, 1)).cuda()
-    position_ids = torch.tensor(data, dtype=torch.int64).repeat((args.micro_batch_size, 1)).cuda()
+    input_ids = torch.tensor(data, dtype=torch.int64).repeat((args.micro_batch_size, 1)).to(device=get_current_device())
+    position_ids = torch.tensor(data, dtype=torch.int64).repeat((args.micro_batch_size, 1)).to(device=get_current_device())
     attention_mask = None
     ##########
 

@@ -32,7 +32,7 @@ from nemo.collections.multimodal.parts.stable_diffusion.sdxl_helpers import (
 
 
 class SamplingPipeline:
-    def __init__(self, model, device="cuda", use_fp16=True, is_legacy=False) -> None:
+    def __init__(self, model, device=None, use_fp16=True, is_legacy=False) -> None:
         self.device = device
         self.model = model
         if use_fp16:

@@ -14,6 +14,7 @@
 
 """Retrieval Transformer."""
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
@@ -164,7 +165,7 @@ class MegatronRetrievalTransformerEncoderModule(MegatronModule):
         self.model.set_input_tensor(input_tensor)
 
     def _allocate_memory(self, *shape, dtype):
-        return torch.empty(*shape, dtype=dtype, device=torch.cuda.current_device())
+        return torch.empty(*shape, dtype=dtype, device=get_current_device())
 
     def forward(
         self,

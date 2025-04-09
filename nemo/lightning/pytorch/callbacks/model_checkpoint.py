@@ -21,6 +21,7 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import lightning
 import lightning.pytorch as pl
+from nemo.utils import get_current_device
 import torch
 from _weakref import proxy
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint as PTLModelCheckpoint
@@ -531,7 +532,7 @@ class ModelCheckpoint(PTLModelCheckpoint):
         for loss_name in ['reduced_train_loss']:
             if loss_name in keys or loss_name == self.monitor:
                 if loss_name not in monitor_candidates:
-                    monitor_candidates[loss_name] = torch.tensor(0.0, device=torch.cuda.current_device())
+                    monitor_candidates[loss_name] = torch.tensor(0.0, device=get_current_device())
                 if isinstance(trainer.strategy, MegatronStrategy):
                     _sync_from_last_pipeline_stage(monitor_candidates[loss_name], broadcast=True)
 

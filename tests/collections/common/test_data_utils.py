@@ -38,7 +38,7 @@ class _Batch:
     ],
 )
 def test_move_data_to_device(batch):
-    cuda_batch = move_data_to_device(batch, device="cuda")
+    cuda_batch = move_data_to_device(batch, device=None)
     assert type(batch) == type(cuda_batch)
     if isinstance(batch, _Batch):
         assert cuda_batch.data.is_cuda

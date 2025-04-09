@@ -33,7 +33,7 @@ from nemo.collections.llm import fn
 from nemo.lightning import get_vocab_size, io
 from nemo.lightning.megatron_parallel import MaskedTokenLossReduction
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device
 from nemo.utils.import_utils import safe_import
 from nemo.utils.te_utils import te_version
 
@@ -96,7 +96,7 @@ def gpt_data_step(dataloader_iter) -> dict[str, torch.Tensor]:
     _batch_required_keys = {}
     for key, val in _batch.items():
         if key in required_device_keys:
-            _batch_required_keys[key] = val.cuda(non_blocking=True)
+            _batch_required_keys[key] = val.to(get_current_device())
         elif key in required_host_keys:
             _batch_required_keys[key] = val.cpu()
         else:

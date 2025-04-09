@@ -16,6 +16,7 @@ import json
 import os
 import pickle
 
+from nemo.utils import get_current_device
 import torch
 from tqdm.auto import tqdm
 
@@ -423,7 +424,7 @@ class GPTPromptLearningDataset(Dataset):
         batch_max += self.tokens_to_generate
 
         input_ids, _ = self.pad_batch_and_build_loss_mask(input_ids, batch_max, answer_starts)
-        input_ids = input_ids.cuda()
+        input_ids = input_ids.to(device=get_current_device())
         input_ids = torch.cuda.LongTensor(input_ids)
 
         return task_id_nums, (input_ids, input_lengths)

@@ -16,6 +16,7 @@ import json
 import time
 
 import flask
+from nemo.utils.device_utils import get_current_device
 import torch
 from flask import Flask, json, request
 from flask_cors import CORS
@@ -56,7 +57,7 @@ def initialize(config_file_path: str):
             else:
                 model = nemo_nlp.models.machine_translation.MTEncDecModel.restore_from(restore_path=value)
             if torch.cuda.is_available():
-                model = model.cuda()
+                model = model.to(device=get_current_device())
             MODELS_DICT[key] = model
     else:
         raise ValueError("Did not find the config.json or it was empty")

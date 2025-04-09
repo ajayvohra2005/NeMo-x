@@ -80,7 +80,7 @@ def do_sample(
     return_latents=False,
     filter=None,
     seed=42,
-    device="cuda",
+    device=None,
 ):
     if force_uc_zero_embeddings is None:
         force_uc_zero_embeddings = []
@@ -133,7 +133,7 @@ def do_sample(
                 return samples
 
 
-def get_batch(keys, value_dict, N: Union[List, ListConfig], device="cuda"):
+def get_batch(keys, value_dict, N: Union[List, ListConfig], device=None):
     # Hardcoded demo setups; might undergo some changes in the future
 
     batch = {}
@@ -173,7 +173,7 @@ def get_batch(keys, value_dict, N: Union[List, ListConfig], device="cuda"):
     return batch, batch_uc
 
 
-def get_input_image_tensor(image: Image.Image, device="cuda"):
+def get_input_image_tensor(image: Image.Image, device=None):
     w, h = image.size
     print(f"loaded input image of size ({w}, {h})")
     width, height = map(lambda x: x - x % 64, (w, h))  # resize to integer multiple of 64
@@ -197,7 +197,7 @@ def do_img2img(
     skip_encode=False,
     filter=None,
     seed=42,
-    device="cuda",
+    device=None,
 ):
     rng = torch.Generator(device=device).manual_seed(seed)
 

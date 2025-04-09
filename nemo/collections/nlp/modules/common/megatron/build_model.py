@@ -15,6 +15,7 @@
 
 from typing import Any, Callable, Dict, List, Optional
 
+from nemo.utils import get_current_device
 import torch
 
 from nemo.collections.nlp.modules.common.megatron.utils import ApexGuardDefaults
@@ -145,10 +146,10 @@ def build_model(
     # GPU allocation.
     if not on_cpu:
         for model_module in model:
-            model_module.cuda(torch.cuda.current_device())
+            model_module.cuda(get_current_device())
 
     if wrap_with_ddp:
-        i = torch.cuda.current_device()
+        i = get_current_device()
         model = [
             torch.nn.parallel.distributed.DistributedDataParallel(
                 model_module,

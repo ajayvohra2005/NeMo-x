@@ -16,6 +16,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import Trainer
 from omegaconf import DictConfig, open_dict
@@ -30,7 +31,7 @@ from nemo.collections.nlp.models.language_modeling.megatron_base_model import Me
 from nemo.collections.nlp.modules.common.megatron.module import Float16Module
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.common import Serialization
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 try:
     from apex import amp
@@ -65,6 +66,7 @@ except Exception:
 
 DUMMY_TENSOR = torch.tensor([1.0])
 
+xm = get_xla_model()
 
 class Imagen(torch.nn.Module, Serialization):
     def __init__(self, cfg, model_parallel_config):
@@ -116,7 +118,7 @@ class Imagen(torch.nn.Module, Serialization):
     def setup_rng(self):
         # We need to set different rng seed for different GPUs/ different runs;
         # otherwise, the noise map and time will be exactly the same.
-        self.rng = torch.Generator(device=torch.cuda.current_device())
+        self.rng = torch.Generator(device=get_current_device())
         self.rng_seed = int(datetime.now().timestamp()) + self.cfg.seed + parallel_state.get_data_parallel_rank()
         logging.info(f'RNG seed set as {self.rng_seed} for rank {parallel_state.get_data_parallel_rank()}')
         self.rng.manual_seed(self.rng_seed)
@@ -256,7 +258,7 @@ class MegatronImagen(MegatronBaseModel):
         def fwd_output_and_loss_func(dataloader_iter, model):
             batch, _, _ = next(dataloader_iter)
             batch = process_batch(batch)
-            batch = [x.cuda(non_blocking=True) for x in batch]
+            batch = [x.to(get_current_device()) for x in batch]
             loss, loss_dict = model(*batch)
 
             def dummy(output_tensor):
@@ -385,7 +387,7 @@ class MegatronImagen(MegatronBaseModel):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0).cuda()
+                loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
         return loss_mean, loss_dict
 
@@ -504,9 +506,14 @@ class MegatronImagen(MegatronBaseModel):
             num_parameters_on_device = sum([p.nelement() for p in self.model.parameters()])
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda(non_blocking=True)
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
 
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                          groups=parallel_state.get_pipeline_model_parallel_groups(), 
+                          pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '
@@ -611,7 +618,7 @@ class MegatronImagen(MegatronBaseModel):
                 f'Setting up pretrained text encoder: {self.text_encoder_path or "download or use cached t5-11b"}'
             )
             self.text_encoder = self.model.get_text_encoder(encoder_path=self.text_encoder_path).to(
-                torch.cuda.current_device()
+                get_current_device()
             )
             self.text_encoder.eval()
             for param in self.text_encoder.parameters():

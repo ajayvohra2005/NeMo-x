@@ -15,6 +15,7 @@ import copy
 import glob
 
 import jiwer
+from nemo.utils import get_current_device
 import pytest
 import torch
 from omegaconf import open_dict
@@ -67,7 +68,7 @@ def test_cuda_graph_rnnt_greedy_decoder(model_name, batch_size, enable_bfloat16,
     if enable_bfloat16 and not torch.cuda.is_bf16_supported():
         pytest.skip("bfloat16 is not supported")
 
-    device = torch.device("cuda")
+    device = get_current_device()
     nemo_model = request.getfixturevalue(model_name).to(device)
     decoding_config = copy.deepcopy(nemo_model.cfg.decoding)
 
@@ -128,7 +129,7 @@ def test_loop_labels_cuda_graph_rnnt_greedy_decoder_forced_mode(
         skip_cuda_python_test_if_cuda_graphs_conditional_nodes_not_supported()
 
     batch_size = 16
-    device = torch.device("cuda")
+    device = get_current_device()
     nemo_model = stt_en_fastconformer_transducer_large.to(device)
     decoding_config = copy.deepcopy(nemo_model.cfg.decoding)
 

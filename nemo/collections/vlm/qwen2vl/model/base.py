@@ -43,7 +43,7 @@ from nemo.collections.vlm.vision.base import get_image_sequence_length
 from nemo.lightning import io
 from nemo.lightning.megatron_parallel import MaskedTokenLossReductionWithLossMask
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device
 
 
 def qwen2vl_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
@@ -72,7 +72,7 @@ def qwen2vl_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
         )
 
     _batch = {
-        key: val.cuda(non_blocking=True) if key in required_keys and val is not None else None
+        key: val.to(get_current_device()) if key in required_keys and val is not None else None
         for key, val in _batch.items()
     }
     # slice batch along sequence dimension for context parallelism

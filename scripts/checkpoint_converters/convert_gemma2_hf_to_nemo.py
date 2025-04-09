@@ -31,6 +31,7 @@ If you encounter a torch.cuda.OutOfMemoryError, try converting on CPU with --cpu
 import os
 from argparse import ArgumentParser
 
+from nemo.utils import get_current_device
 import torch
 
 from megatron.core import parallel_state
@@ -239,8 +240,8 @@ def verify(nemo_model, hf_tokenizer, hf_model):
     # Tokenize the input texts
     hf_tokenizer.pad_token = hf_tokenizer.eos_token
     batch_dict = hf_tokenizer(input_texts, max_length=512, padding=True, truncation=True, return_tensors='pt')
-    batch_dict_cuda = {k: v.cuda() for k, v in batch_dict.items()}
-    hf_model = hf_model.cuda().eval()
+    batch_dict_cuda = {k: v.to(device=get_current_device()) for k, v in batch_dict.items()}
+    hf_model = hf_model.to(device=get_current_device()).eval()
     nemo_model = nemo_model.eval()
 
     hf_outputs = hf_model(**batch_dict_cuda, output_hidden_states=True)
@@ -257,7 +258,7 @@ def verify(nemo_model, hf_tokenizer, hf_model):
     for tokens, attn_mask_and_pos_ids in zip(id_tensors, masks_and_position_ids):
         attn_mask, _, pos_ids = attn_mask_and_pos_ids
         outputs = nemo_model(
-            tokens=tokens.cuda(), text_position_ids=pos_ids.cuda(), attention_mask=attn_mask.cuda(), labels=None
+            tokens=tokens.to(device=get_current_device()), text_position_ids=pos_ids.to(device=get_current_device()), attention_mask=attn_mask.to(device=get_current_device()), labels=None
         )
 
     hf_next_token = hf_outputs.logits[0, -1].argmax()

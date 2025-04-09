@@ -20,6 +20,7 @@ import tempfile
 from copy import deepcopy
 from typing import Any, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.utilities import rank_zero_only
 from omegaconf import DictConfig, OmegaConf
@@ -127,8 +128,8 @@ class ClusteringDiarizer(torch.nn.Module, Model, DiarizationMixin):
         Initialize speaker embedding model with model name or path passed through config
         """
         if speaker_model is not None:
-            if self._cfg.device is None and torch.cuda.is_available():
-                self._speaker_model = speaker_model.to(torch.device('cuda'))
+            if self._cfg.device is None:
+                self._speaker_model = speaker_model.to(device=get_current_device())
             else:
                 self._speaker_model = speaker_model
         else:
@@ -213,7 +214,7 @@ class ClusteringDiarizer(torch.nn.Module, Model, DiarizationMixin):
             tqdm(self._vad_model.test_dataloader(), desc='vad', leave=True, disable=not self.verbose)
         ):
             test_batch = [x.to(self._vad_model.device) for x in test_batch]
-            with torch.amp.autocast(self._vad_model.device.type):
+            with torch.autocast(self._vad_model.device.type):
                 log_probs = self._vad_model(input_signal=test_batch[0], input_signal_length=test_batch[1])
                 probs = torch.softmax(log_probs, dim=-1)
                 pred = probs[:, 1]
@@ -349,7 +350,7 @@ class ClusteringDiarizer(torch.nn.Module, Model, DiarizationMixin):
         ):
             test_batch = [x.to(self._speaker_model.device) for x in test_batch]
             audio_signal, audio_signal_len, labels, slices = test_batch
-            with torch.amp.autocast(self._speaker_model.device.type):
+            with torch.autocast(self._speaker_model.device.type):
                 _, embs = self._speaker_model.forward(input_signal=audio_signal, input_signal_length=audio_signal_len)
                 emb_shape = embs.shape[-1]
                 embs = embs.view(-1, emb_shape)

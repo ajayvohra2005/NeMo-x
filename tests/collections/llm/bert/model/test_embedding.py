@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from nemo.utils import get_xla_model
 import pytest
 import torch
 
@@ -20,6 +21,7 @@ from nemo.collections.llm.bert.model.embedding import (
     BertEmbeddingMiniConfig,
 )
 
+xm = get_xla_model()
 
 class TestBertEmbeddingHead:
     @pytest.fixture

@@ -16,6 +16,7 @@
 
 from typing import Optional, Tuple
 
+from nemo.utils import get_current_device_type
 import numpy as np
 import torch
 from torch import Tensor, nn
@@ -94,7 +95,7 @@ class BiLSTM(nn.Module):
         dtype = context.dtype
         # autocast guard is only needed for Torchscript to run in Triton
         # (https://github.com/pytorch/pytorch/issues/89241)
-        with torch.amp.autocast(self.device.type, enabled=False):
+        with torch.autocast(self.device.type, enabled=False):
             # Calculate sizes and prepare views to our zero buffer to pass as hx
             max_batch_size = context.shape[0]
             context = context.to(dtype=torch.float32)
@@ -204,7 +205,7 @@ class Invertible1x1ConvLUS(torch.nn.Module):
         self.upper_diag = nn.Parameter(torch.diag(upper))
         self.upper = nn.Parameter(torch.triu(upper, 1))
 
-    @torch.amp.autocast(device_type='cuda', enabled=False)
+    @torch.autocast(device_type=get_current_device_type(), enabled=False)
     def forward(self, z, inverse=False):
         U = torch.triu(self.upper, 1) + torch.diag(self.upper_diag)
         L = torch.tril(self.lower, -1) + torch.diag(self.lower_diag)
@@ -470,7 +471,7 @@ class SplineTransformationLayerAR(torch.nn.Module):
         z_reshaped = z.permute(0, 2, 1).reshape(b_s * t_s, -1)
         affine_params = self.param_predictor(context)
         q_tilde = affine_params.permute(0, 2, 1).reshape(b_s * t_s, c_s, -1)
-        with torch.amp.autocast(self.device.type, enabled=False):
+        with torch.autocast(self.device.type, enabled=False):
             if self.use_quadratic:
                 w = q_tilde[:, :, : self.n_bins // 2]
                 v = q_tilde[:, :, self.n_bins // 2 :]
@@ -555,7 +556,7 @@ class SplineTransformationLayer(torch.nn.Module):
         z_1_reshaped = z_1.permute(0, 2, 1).reshape(b_s * t_s, -1)
         q_tilde = affine_params.permute(0, 2, 1).reshape(b_s * t_s, n_half, self.n_bins)
 
-        with torch.amp.autocast(self.device.type, enabled=False):
+        with torch.autocast(self.device.type, enabled=False):
             if self.use_quadratic:
                 w = q_tilde[:, :, : self.n_bins // 2]
                 v = q_tilde[:, :, self.n_bins // 2 :]

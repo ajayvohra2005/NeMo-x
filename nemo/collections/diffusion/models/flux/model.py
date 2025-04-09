@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 import lightning.pytorch as L
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from megatron.core.dist_checkpointing.mapping import ShardedStateDict
@@ -64,7 +65,7 @@ def flux_data_step(dataloader_iter):
     else:
         _batch = batch
 
-    _batch['loss_mask'] = torch.Tensor([1.0]).cuda(non_blocking=True)
+    _batch['loss_mask'] = torch.Tensor([1.0]).to(get_current_device())
     return _batch
 
 
@@ -450,12 +451,12 @@ class MegatronFluxModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNM
     def configure_vae(self, vae):
         # pylint: disable=C0116
         if isinstance(vae, nn.Module):
-            self.vae = vae.eval().cuda()
+            self.vae = vae.eval().to(device=get_current_device())
             self.vae_scale_factor = 2 ** (len(self.vae.params.ch_mult))
             for param in self.vae.parameters():
                 param.requires_grad = False
         elif isinstance(vae, AutoEncoderConfig):
-            self.vae = AutoEncoder(vae).eval().cuda()
+            self.vae = AutoEncoder(vae).eval().to(device=get_current_device())
             self.vae_scale_factor = 2 ** (len(vae.ch_mult))
             for param in self.vae.parameters():
                 param.requires_grad = False
@@ -473,7 +474,7 @@ class MegatronFluxModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNM
                 version=self.clip_params.version,
                 max_length=self.clip_params.max_length,
                 always_return_pooled=self.clip_params.always_return_pooled,
-                device=torch.cuda.current_device(),
+                device=get_current_device(),
             )
         else:
             logging.info("CLIP encoder not provided, assuming the text embeddings is precached...")
@@ -483,7 +484,7 @@ class MegatronFluxModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNM
             self.t5 = t5
         elif isinstance(t5, T5Config):
             self.t5 = FrozenT5Embedder(
-                self.t5_params.version, max_length=self.t5_params.max_length, device=torch.cuda.current_device()
+                self.t5_params.version, max_length=self.t5_params.max_length, device=get_current_device()
             )
         else:
             logging.info("T5 encoder not provided, assuming the text embeddings is precached...")
@@ -516,17 +517,17 @@ class MegatronFluxModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNM
             self.autocast_dtype = torch.float32
 
         if self.image_precached:
-            latents = batch['latents'].cuda(non_blocking=True)
+            latents = batch['latents'].to(get_current_device())
         else:
-            img = batch['images'].cuda(non_blocking=True)
+            img = batch['images'].to(get_current_device())
             latents = self.vae.encode(img).to(dtype=self.autocast_dtype)
         latents, noise, packed_noisy_model_input, latent_image_ids, guidance_vec, timesteps = (
             self.prepare_image_latent(latents)
         )
         if self.text_precached:
-            prompt_embeds = batch['prompt_embeds'].cuda(non_blocking=True).transpose(0, 1)
-            pooled_prompt_embeds = batch['pooled_prompt_embeds'].cuda(non_blocking=True)
-            text_ids = batch['text_ids'].cuda(non_blocking=True)
+            prompt_embeds = batch['prompt_embeds'].to(get_current_device()).transpose(0, 1)
+            pooled_prompt_embeds = batch['pooled_prompt_embeds'].to(get_current_device())
+            text_ids = batch['text_ids'].to(get_current_device())
         else:
             txt = batch['txt']
             prompt_embeds, pooled_prompt_embeds, text_ids = self.encode_prompt(

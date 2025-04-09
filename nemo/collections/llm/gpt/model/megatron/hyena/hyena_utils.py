@@ -18,6 +18,7 @@
 import math
 from functools import partial
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -521,12 +522,12 @@ class ImplicitModalFilter(nn.Module):
         self.d_model = d_model
         # Do not register into buffer, so it doesn't cast to BF16!
         self.t = rearrange(torch.arange(L_cache, dtype=torch.float32), "L -> 1 1 L").to(
-            device=torch.cuda.current_device()
+            device=get_current_device()
         )  # <- this should be arange
         self.use_cached_t = False
         with get_cuda_rng_tracker().fork():
             gamma = torch.rand(self.d_model, order, dtype=torch.float32) * (gamma_max - gamma_min) + gamma_min
-            gamma = gamma.cuda().log()
+            gamma = gamma.to(device=get_current_device()).log()
             self.gamma = nn.Parameter(gamma)
 
             R = 1e-1 * torch.randn(d_model, order, dtype=torch.float32) / math.sqrt(order)
@@ -641,7 +642,7 @@ class ExplicitSingleDecayFilter(nn.Module):
         global_d_model = d_model * self.model_parallel_size // self.num_decay_repeats
         decay_domain = torch.logspace(log_r_min, log_r_max, global_d_model)[:, None].repeat(self.num_decay_repeats, 1)
         decay_domain = decay_domain[self.model_parallel_rank * d_model : (self.model_parallel_rank + 1) * d_model, :]
-        decay = torch.exp((-decay_domain * t).cuda())
+        decay = torch.exp((-decay_domain * t).to(device=get_current_device()))
         self.register_buffer("decay", decay)
         setattr(self.h, 'tensor_model_parallel', True)
         setattr(self.decay, 'tensor_model_parallel', True)
@@ -850,7 +851,7 @@ class ParallelHyenaOperator(nn.Module):
             self.conv_bias = nn.Parameter(
                 torch.empty(
                     self.width_per_tp_group,
-                    device=torch.cuda.current_device(),
+                    device=get_current_device(),
                     dtype=torch.float32,
                 )
             )
@@ -949,7 +950,6 @@ class ParallelHyenaOperator(nn.Module):
                 z = self.fftconv_fn(v, h, x2, x1)
             else:
                 z = x2 * v
-                # with torch.autocast("cuda"):
                 z = fftconv_func(
                     u=z.to(torch.float32),
                     k=h.to(torch.float32),
@@ -1099,7 +1099,7 @@ class ParallelShortHyenaOperator(nn.Module):
                 self.conv_bias = nn.Parameter(
                     torch.empty(
                         self.num_groups,
-                        device=torch.cuda.current_device(),
+                        device=get_current_device(),
                         dtype=torch.float32,
                     )
                 )
@@ -1211,7 +1211,7 @@ class ParallelCausalDepthwiseConv1d(nn.Module):
             self.short_conv_weight = nn.Parameter(
                 torch.empty(
                     weight_shape,
-                    device=torch.cuda.current_device(),
+                    device=get_current_device(),
                     dtype=transformer_config.params_dtype,
                 )
             )

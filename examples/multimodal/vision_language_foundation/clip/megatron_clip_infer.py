@@ -60,8 +60,8 @@ def main(cfg) -> None:
     with torch.no_grad(), torch.cuda.amp.autocast(
         enabled=autocast_dtype in (torch.half, torch.bfloat16), dtype=autocast_dtype,
     ):
-        image = val_image_transform(image).unsqueeze(0).cuda()
-        texts = text_transform(cfg.texts).cuda()
+        image = val_image_transform(image).unsqueeze(0).to(device=get_current_device())
+        texts = text_transform(cfg.texts).to(device=get_current_device())
         image_features = vision_encoder(image)
         text_features = text_encoder(texts)
         image_features /= image_features.norm(dim=-1, keepdim=True)

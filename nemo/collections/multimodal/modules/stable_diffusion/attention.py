@@ -15,6 +15,7 @@ import math
 import os
 from inspect import isfunction
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
@@ -51,7 +52,7 @@ HAVE_TE = HAVE_DPA and HAVE_LN_LINEAR and HAVE_LN_MLP
 def check_cuda():
     if not torch.cuda.is_available():
         raise ImportError('CUDA is not available')
-    cur_device = torch.cuda.current_device()
+    cur_device = get_current_device()
     dprops = torch.cuda.get_device_properties(cur_device)
 
     is_sm75 = dprops.major == 7 and dprops.minor == 5

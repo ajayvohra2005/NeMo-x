@@ -110,14 +110,14 @@ def use_inference_server(cfg, model, trainer):
                 target=web_ui, daemon=True, args=(cfg.share, cfg.username, cfg.password, cfg.port, cfg.web_port, loop),
             )
             thread.start()
-        server = MegatronServer(model.cuda())
+        server = MegatronServer(model.to(device=get_current_device()))
         server.run("0.0.0.0", port=cfg.port)
 
     while True:
         choice = torch.cuda.LongTensor(1)
         torch.distributed.broadcast(choice, 0)
         if choice[0].item() == 0:
-            generate(model.cuda())
+            generate(model.to(device=get_current_device()))
 
 
 @hydra_runner(config_path="conf", config_name="megatron_gpt_generate_config")

@@ -15,6 +15,7 @@
 from math import ceil
 from typing import Any, Dict, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 from lightning.pytorch import Trainer
@@ -171,9 +172,9 @@ class SpeechEncDecSelfSupervisedModel(ModelPT, ASRModuleMixin, AccessMixin):
             )
 
         shuffle = config['shuffle']
-        device = 'gpu' if torch.cuda.is_available() else 'cpu'
+        device = get_current_device()
         if config.get('use_dali', False):
-            device_id = self.local_rank if device == 'gpu' else None
+            device_id = self.local_rank if device.index else None
             dataset = audio_to_text_dataset.get_dali_char_dataset(
                 config=config,
                 shuffle=shuffle,

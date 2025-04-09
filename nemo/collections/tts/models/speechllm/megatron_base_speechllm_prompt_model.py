@@ -14,6 +14,7 @@
 
 import re
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig
@@ -240,7 +241,7 @@ class MegatronBaseSpeechLM(MegatronBaseModel, TextGeneration):
 
         # Not sure why when we resume training the prompt encoder is on cpu
         # Because it's not created on init - Should really be moved to init
-        self.prompt_encoder.to("cuda")
+        self.prompt_encoder.to(get_current_device())
 
     def embed_input(self, input_ids: Tensor, taskname_ids: Tensor, use_cached_reps: bool):
         """

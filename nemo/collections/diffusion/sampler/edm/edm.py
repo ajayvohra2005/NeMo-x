@@ -15,6 +15,7 @@
 from statistics import NormalDist
 from typing import Callable, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 from torch import nn
@@ -49,7 +50,7 @@ class EDMSDE:
     def sample_t(self, batch_size: int) -> torch.Tensor:
         cdf_vals = self._generator.uniform(size=(batch_size))
         samples_interval_gaussian = [self.gaussian_dist.inv_cdf(cdf_val) for cdf_val in cdf_vals]
-        log_sigma = torch.tensor(samples_interval_gaussian, device="cuda")
+        log_sigma = torch.tensor(samples_interval_gaussian, device=get_current_device())
         return torch.exp(log_sigma)
 
     def marginal_prob(self, x0: torch.Tensor, sigma: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:

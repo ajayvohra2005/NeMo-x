@@ -41,10 +41,10 @@ def main(cfg):
     ### Manually configure sharded model
     # model = megatron_diffusion_model
     # model = trainer.strategy._setup_model(model)
-    # model = model.cuda(torch.cuda.current_device())
+    # model = model.cuda(get_current_device())
     # get the diffusion part only
     model = megatron_diffusion_model.model
-    model.cuda().eval()
+    model.to(device=get_current_device()).eval()
 
     with torch.no_grad():
         base = SamplingPipeline(model, use_fp16=cfg.use_fp16, is_legacy=cfg.model.is_legacy)

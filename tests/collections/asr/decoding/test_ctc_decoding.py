@@ -28,7 +28,7 @@ from nemo.collections.asr.parts.submodules.ctc_decoding import (
 )
 from nemo.collections.asr.parts.utils.asr_confidence_utils import ConfidenceConfig
 from nemo.collections.asr.parts.utils.rnnt_utils import Hypothesis
-
+from nemo.utils import get_current_device
 
 def char_vocabulary():
     return [' ', 'a', 'b', 'c', 'd', 'e', 'f', '.']
@@ -228,26 +228,14 @@ class TestCTCDecoding:
         "logprobs_device",
         [
             torch.device("cpu"),
-            pytest.param(
-                torch.device("cuda"),
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(),
-                    reason='CUDA required for test.',
-                ),
-            ),
+            get_current_device()
         ],
     )
     @pytest.mark.parametrize(
         "length_device",
         [
             torch.device("cpu"),
-            pytest.param(
-                torch.device("cuda"),
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(),
-                    reason='CUDA required for test.',
-                ),
-            ),
+            get_current_device()
         ],
     )
     def test_batched_decoding_logprobs(
@@ -310,26 +298,14 @@ class TestCTCDecoding:
         "labels_device",
         [
             torch.device("cpu"),
-            pytest.param(
-                torch.device("cuda"),
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(),
-                    reason='CUDA required for test.',
-                ),
-            ),
+            get_current_device()
         ],
     )
     @pytest.mark.parametrize(
         "length_device",
         [
             torch.device("cpu"),
-            pytest.param(
-                torch.device("cuda"),
-                marks=pytest.mark.skipif(
-                    not torch.cuda.is_available(),
-                    reason='CUDA required for test.',
-                ),
-            ),
+            get_current_device()
         ],
     )
     def test_batched_decoding_labels(self, tmp_tokenizer, timestamps, length_is_none, labels_device, length_device):

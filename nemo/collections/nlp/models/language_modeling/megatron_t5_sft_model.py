@@ -15,6 +15,7 @@ import itertools
 import json
 from typing import Dict, List
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.loops.fetchers import _DataFetcherWrapper
 from lightning.pytorch.trainer.trainer import Trainer
@@ -29,7 +30,7 @@ from nemo.collections.nlp.models.language_modeling.megatron_t5_model import Mega
 from nemo.collections.nlp.modules.common.megatron.utils import get_iterator_k_split
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import AppState, logging
+from nemo.utils import AppState, logging, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -62,6 +63,7 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ['MegatronT5SFTModel']
 
+xm = get_xla_model()
 
 class MegatronT5SFTModel(NLPAdapterModelMixin, MegatronT5Model):
     """T5 Finetuning model in the same format as MegatronGPTSFTModel"""
@@ -447,7 +449,7 @@ class MegatronT5SFTModel(NLPAdapterModelMixin, MegatronT5Model):
                 # only the last pipeline parallel stages return loss
                 loss = torch.stack(loss_vals).mean()
             else:
-                loss = torch.tensor(0.0).cuda()
+                loss = torch.tensor(0.0).to(device=get_current_device())
 
             # we can only log on one rank if it is rank zero so we broadcast from last rank
             torch.distributed.broadcast(loss, get_last_rank())
@@ -510,7 +512,8 @@ class MegatronT5SFTModel(NLPAdapterModelMixin, MegatronT5Model):
                         }
                         for x in output
                     ],
-                    group=parallel_state.get_data_parallel_group(),
+                    group=parallel_state.get_data_parallel_group() if not xm else \
+                        parallel_state.get_data_parallel_group_gloo()
                 )
 
                 # Figure out what the suffix of the file should be.

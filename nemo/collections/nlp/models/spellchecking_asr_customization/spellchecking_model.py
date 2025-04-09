@@ -340,7 +340,7 @@ class SpellcheckingAsrCustomizationModel(NLPModel):
         Returns: None
         """
         mode = self.training
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = get_current_device()
 
         try:
             # Switch model to evaluation mode

@@ -20,6 +20,7 @@
 import itertools
 import os
 
+from nemo.utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig
@@ -79,7 +80,7 @@ class MegatronGPTBaseAdapterModel(MegatronGPTPromptLearningModel):
                 inference_max_sequence_len=inference_max_sequence_len,
             )
         else:
-            with torch.autocast(device_type="cuda", dtype=self.autocast_dtype):
+            with torch.autocast(device_type=get_current_device_type(), dtype=self.autocast_dtype):
                 output = self.frozen_model.model(
                     input_ids=input_ids,
                     position_ids=position_ids,
@@ -126,10 +127,10 @@ class MegatronGPTBaseAdapterModel(MegatronGPTPromptLearningModel):
                 inference_max_sequence_len,
             ) = batch
 
-            tokens = tokens.cuda()
-            attention_mask = attention_mask.cuda()
-            position_ids = position_ids.cuda()
-            task_ids = task_ids.cuda()
+            tokens = tokens.to(device=get_current_device())
+            attention_mask = attention_mask.to(device=get_current_device())
+            position_ids = position_ids.to(device=get_current_device())
+            task_ids = task_ids.to(device=get_current_device())
             extra_arg['set_inference_key_value_memory'] = set_inference_key_value_memory[0].item()
             extra_arg['inference_max_sequence_len'] = inference_max_sequence_len[0].item()
 
@@ -198,7 +199,7 @@ class MegatronGPTBaseAdapterModel(MegatronGPTPromptLearningModel):
     def get_forward_output_and_loss_func(self):
         def fwd_output_and_loss_func(dataloader_iter, model):
             batch = next(dataloader_iter)
-            batch = [x.cuda(non_blocking=True) for x in batch]
+            batch = [x.to(get_current_device()) for x in batch]
             input_ids, labels, loss_mask, position_ids, attention_mask, taskname_ids = batch
             output_tensor = model(input_ids, position_ids, attention_mask, taskname_ids, labels, inference=False)
 

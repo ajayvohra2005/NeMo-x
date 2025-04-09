@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import _freqencoder as _backend
+from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 from torch.autograd import Function
@@ -26,7 +27,7 @@ class _freq_encoder(Function):
         # RETURN: [B, F], float
 
         if not inputs.is_cuda:
-            inputs = inputs.cuda()
+            inputs = inputs.to(device=get_current_device())
         inputs = inputs.contiguous()
 
         B, input_dim = inputs.shape  # batch size, coord dim

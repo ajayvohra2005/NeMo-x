@@ -14,6 +14,7 @@
 
 import os
 
+from nemo.utils import get_current_device
 import pytest
 import soundfile as sf
 import torch
@@ -23,7 +24,7 @@ from nemo.collections.asr.parts.utils.manifest_utils import read_manifest
 
 @pytest.fixture()
 def set_device():
-    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    return get_current_device()
 
 
 @pytest.fixture()

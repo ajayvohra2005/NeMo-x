@@ -304,7 +304,7 @@ def main():
 
     # Load model
     print("Restoring Aligner model from checkpoint...")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_current_device()
     aligner = AlignerModel.restore_from(args.model, map_location=device)
 
     # Disambiguation

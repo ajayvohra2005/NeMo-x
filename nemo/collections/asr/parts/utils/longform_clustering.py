@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from typing import Dict, List, Tuple
+from nemo.utils import get_current_device
 import torch
 from tqdm import tqdm
 from nemo.collections.asr.parts.utils.offline_clustering import (
@@ -44,7 +45,7 @@ class LongFormSpeakerClustering(torch.nn.Module):
         self.embeddings_in_scales: List[torch.Tensor] = [torch.tensor([0])]
         self.timestamps_in_scales: List[torch.Tensor] = [torch.tensor([0])]
         self.cuda = cuda
-        self.device = torch.device("cuda") if self.cuda else torch.device("cpu")
+        self.device = get_current_device()
 
     def check_input(self, embeddings_per_chunk: int, chunk_cluster_count: int, max_num_speakers: int) -> None:
         """

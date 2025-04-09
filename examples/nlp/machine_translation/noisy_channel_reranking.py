@@ -181,8 +181,8 @@ def main():
 
     if args.cached_score_file is None:
         if torch.cuda.is_available():
-            reverse_models = [model.cuda() for model in reverse_models]
-            lm_model = lm_model.cuda()
+            reverse_models = [model.to(device=get_current_device()) for model in reverse_models]
+            lm_model = lm_model.to(device=get_current_device())
 
     src_text = []
     tgt_text = []

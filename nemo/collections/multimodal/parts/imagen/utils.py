@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from nemo.utils import get_current_device
 import torch
 
 
@@ -24,6 +25,6 @@ def random_dropout(embeddings, drop_rate):
     """
     nsamples = embeddings.shape[0]
     zero_flag = torch.ones(nsamples, 1, 1).to(embeddings.dtype) * (1 - drop_rate)
-    zero_flag = torch.bernoulli(zero_flag).cuda()
+    zero_flag = torch.bernoulli(zero_flag).to(device=get_current_device())
     embeddings = embeddings * zero_flag
     return embeddings

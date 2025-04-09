@@ -91,7 +91,7 @@ def main(cfg):
         model_provider=MegatronDiffusionEngine, cfg=cfg, model_cfg_modifier=model_cfg_modifier
     )
     model = megatron_diffusion_model.model
-    model.cuda().eval()
+    model.to(device=get_current_device()).eval()
     base = SamplingPipeline(model, use_fp16=cfg.use_fp16, is_legacy=cfg.model.is_legacy)
 
     if use_refiner:

@@ -23,6 +23,7 @@ from megatron.core.inference.model_inference_wrappers.abstract_model_inference_w
 from megatron.core.inference.model_inference_wrappers.inference_wrapper_config import InferenceWrapperConfig
 from megatron.core.inference_params import InferenceParams
 from torch.utils.data import default_collate
+from nemo.utils import get_current_device
 
 from nemo.collections.vlm.mllama.model.utils import create_vision_mask_tensor
 
@@ -78,9 +79,9 @@ class MllamaInferenceWrapper(AbstractModelInferenceWrapper):
         return {
             "prompts_tokens": prompts_tokens,
             "position_ids": position_ids,
-            "pixel_values": batch['pixel_values'].cuda(non_blocking=True),
+            "pixel_values": batch['pixel_values'].to(get_current_device()),
             "num_tiles": batch['num_tiles'],
-            "aspect_ratio_ids": batch['aspect_ratio_ids'].cuda(non_blocking=True),
+            "aspect_ratio_ids": batch['aspect_ratio_ids'].to(get_current_device()),
         }
 
     def get_batch_for_context_window(

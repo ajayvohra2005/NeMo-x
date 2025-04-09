@@ -13,6 +13,7 @@
 # limitations under the License.
 from typing import Optional
 
+from nemo.utils import get_local_device_count
 import nemo_run as run
 import torch
 
@@ -33,12 +34,7 @@ def torchrun(devices: Optional[int] = None) -> run.Config[run.LocalExecutor]:
     }
 
     if devices is None:
-        if torch.cuda.is_available():
-            devices = torch.cuda.device_count()
-        else:
-            raise RuntimeError(
-                "Cannot infer the 'ntasks_per_node' parameter as CUDA is not available: please specify explicitely."
-            )
+        devices = get_local_device_count()
 
     executor = run.Config(
         run.LocalExecutor,

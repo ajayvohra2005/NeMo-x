@@ -17,6 +17,7 @@ import os
 import warnings
 from typing import Dict, List, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import soundfile as sf
 import torch
@@ -212,7 +213,7 @@ class MultiSpeakerSimulator(object):
         # variable speaker volume
         self._volume = None
         self._speaker_ids = None
-        self._device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        self._device = get_current_device()
         self._audio_read_buffer_dict = {}
         self.add_missing_overlap = self._params.data_simulator.session_params.get("add_missing_overlap", False)
 

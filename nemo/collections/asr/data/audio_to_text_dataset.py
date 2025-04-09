@@ -18,6 +18,7 @@ import random
 from math import isclose
 from typing import Any, List, Optional, Union
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import LightningModule
 from lightning.pytorch.callbacks import BasePredictionWriter
@@ -509,7 +510,7 @@ def get_dali_char_dataset(
     Returns:
         An instance of AudioToCharDALIDataset.
     """
-    device = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device = get_current_device()
     dataset = audio_to_text_dali.AudioToCharDALIDataset(
         manifest_filepath=config['manifest_filepath'],
         device=device,
@@ -560,7 +561,7 @@ def get_dali_bpe_dataset(
     Returns:
         An instance of AudioToCharDALIDataset.
     """
-    device = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device = get_current_device()
     dataset = audio_to_text_dali.AudioToBPEDALIDataset(
         manifest_filepath=config['manifest_filepath'],
         tokenizer=tokenizer,
@@ -626,9 +627,9 @@ def get_audio_to_text_char_dataset_from_config(
                     return None
 
     shuffle = config['shuffle']
-    device = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device = get_current_device()
     if config.get('use_dali', False):
-        device_id = local_rank if device == 'gpu' else None
+        device_id = local_rank if device.index else None
         dataset = get_dali_char_dataset(
             config=config,
             shuffle=shuffle,
@@ -756,9 +757,9 @@ def get_audio_to_text_bpe_dataset_from_config(
                     return None
 
     shuffle = config['shuffle']
-    device = 'gpu' if torch.cuda.is_available() else 'cpu'
+    device = get_current_device()
     if config.get('use_dali', False):
-        device_id = local_rank if device == 'gpu' else None
+        device_id = local_rank if device.index else None
         dataset = get_dali_bpe_dataset(
             config=config,
             tokenizer=tokenizer,

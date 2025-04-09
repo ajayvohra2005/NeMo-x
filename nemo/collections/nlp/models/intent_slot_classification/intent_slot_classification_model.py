@@ -16,6 +16,7 @@ import os
 import pathlib
 from typing import Dict, List, Optional
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import Trainer
 from omegaconf import DictConfig, OmegaConf
@@ -390,7 +391,7 @@ class IntentSlotClassificationModel(NLPModel):
         predicted_slots = []
         mode = self.training
         try:
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            device = get_current_device()
 
             # Retrieve intent and slot vocabularies from configuration.
             intent_labels = self.cfg.data_desc.intent_labels

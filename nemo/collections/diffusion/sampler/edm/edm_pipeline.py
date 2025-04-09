@@ -14,6 +14,7 @@
 
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.distributed
@@ -130,7 +131,7 @@ class EDMPipeline:
 
         self.input_data_key = 'video'
         self.input_image_key = 'images_1024'
-        self.tensor_kwargs = {"device": "cuda", "dtype": torch.bfloat16}
+        self.tensor_kwargs = {"device": get_current_device(), "dtype": torch.bfloat16}
         self.loss_reduce = 'mean'
         self.loss_scale = 1.0
 

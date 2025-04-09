@@ -18,6 +18,7 @@ import random
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
+from nemo.utils import get_current_device
 import numpy as np
 import torch
 import webdataset as wd
@@ -276,7 +277,7 @@ class _TarredInstructionTuningDataset(IterableDataset):
 
     def _compute_len(self):
         if self.shard_manifests and torch.distributed.is_available() and torch.distributed.is_initialized():
-            my_len = torch.tensor(len(self.manifest_processor.collection), dtype=torch.int32).cuda()
+            my_len = torch.tensor(len(self.manifest_processor.collection), dtype=torch.int32).to(device=get_current_device())
             torch.distributed.all_reduce(my_len)
             my_len = my_len.int()
             logging.info(f'Sharded manifests: Total length: {my_len}')

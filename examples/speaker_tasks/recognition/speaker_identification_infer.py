@@ -33,7 +33,7 @@ def main(cfg):
 
     logging.info(f'Hydra config: {OmegaConf.to_yaml(cfg)}')
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = get_current_device()
 
     enrollment_manifest = cfg.data.enrollment_manifest
     test_manifest = cfg.data.test_manifest

@@ -32,6 +32,7 @@ from nemo.collections.asr.parts.utils.streaming_utils import FrameBatchASR, Fram
 from nemo.collections.common.metrics.punct_er import OccurancePunctuationErrorRate
 from nemo.collections.common.parts.preprocessing.manifest import get_full_path
 from nemo.utils import logging, model_utils
+from nemo.utils import get_accelerator_device_type
 
 
 def get_buffered_pred_feat_rnnt(
@@ -71,7 +72,7 @@ def get_buffered_pred_feat_rnnt(
                     refs.append(row['text'])
 
     with torch.inference_mode():
-        with torch.amp.autocast('cpu' if accelerator == 'cpu' else 'cuda'):
+        with torch.autocast(get_accelerator_device_type(accelerator)):
             batch = []
             asr.sample_offset = 0
             for idx in tqdm(range(len(filepaths)), desc='Sample:', total=len(filepaths)):

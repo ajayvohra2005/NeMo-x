@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import hydra
+from nemo.utils import get_current_device
 import torch
 
 from nemo.core.classes.module import NeuralModule
@@ -148,8 +149,7 @@ class ModelPT(LightningModule, Model):
         self._set_model_guid()
 
         # Set device_id in AppState
-        if torch.cuda.is_available() and torch.cuda.current_device() is not None:
-            app_state.device_id = torch.cuda.current_device()
+        app_state.device_id = get_current_device()
 
         if self._cfg is not None and not self._is_model_being_restored():
             # Setup data loaders now (default) or defer setup to `self.setup()`
@@ -2105,7 +2105,7 @@ class ModelPT(LightningModule, Model):
             Module: self
         """
         if device is None:
-            device = torch.device("cuda", torch.cuda.current_device())
+            device = get_current_device()
         elif isinstance(device, int):
             device = torch.device("cuda", index=device)
         return super().cuda(device=device)

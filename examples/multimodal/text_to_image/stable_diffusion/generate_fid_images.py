@@ -81,7 +81,7 @@ def main(cfg):
         model_provider=MegatronLatentDiffusion, cfg=cfg, model_cfg_modifier=model_cfg_modifier
     )
     model = megatron_diffusion_model.model
-    model.cuda().eval()
+    model.to(device=get_current_device()).eval()
 
     # Generate images using the model and save them
     cfg.infer.prompts = input

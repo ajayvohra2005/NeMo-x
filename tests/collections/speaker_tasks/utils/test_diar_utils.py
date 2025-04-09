@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+from nemo.utils import get_current_device
 import numpy as np
 import pytest
 import torch
@@ -988,7 +989,7 @@ class TestSpeakerClustering:
         emb_gen = em_s[-1]
         segment_indexes = ts_s[-1]
         if cuda:
-            device = torch.cuda.current_device()
+            device = get_current_device()
             emb_gen, segment_indexes = emb_gen.to(device), segment_indexes.to(device)
 
         history_buffer_size = buffer_size

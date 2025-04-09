@@ -20,6 +20,7 @@ Example:
 import argparse
 
 import requests
+from nemo.utils import get_current_device
 import torch
 from PIL import Image
 from qwen_vl_utils import process_vision_info
@@ -77,7 +78,7 @@ def main(args) -> None:
     else:
         model = Qwen2VLModel(Qwen2VLConfig2B(), tokenizer=hf_tokenizer)
         model = fabric.load_model(args.local_model_path, model)
-    model = model.module.cuda()
+    model = model.module.to(device=get_current_device())
     model.eval()
 
     messages = [
@@ -106,11 +107,11 @@ def main(args) -> None:
     )
 
     with torch.no_grad():
-        input_ids = inputs['input_ids'].clone().to("cuda")
+        input_ids = inputs['input_ids'].clone().to(device=get_current_device())
         # convert special tokens to nemo image ID
         input_ids[input_ids == 151655] = -200
-        image_grid_thw = inputs['image_grid_thw'].clone().to("cuda")
-        pixel_values = inputs['pixel_values'].clone().to("cuda")
+        image_grid_thw = inputs['image_grid_thw'].clone().to(device=get_current_device())
+        pixel_values = inputs['pixel_values'].clone().to(device=get_current_device())
 
         # Greedy generation loop
         generated_ids = input_ids

@@ -17,6 +17,7 @@ import time
 from copy import deepcopy
 from typing import Dict
 
+from nemo.utils import get_current_device
 import torch
 from omegaconf import DictConfig
 
@@ -95,12 +96,8 @@ class OnlineClusteringDiarizer(ClusteringDiarizer):
         if not os.path.exists(self._out_dir):
             os.mkdir(self._out_dir)
 
-        if torch.cuda.is_available():
-            self.cuda = True
-            self.device = torch.device("cuda")
-        else:
-            self.cuda = False
-            self.device = torch.device("cpu")
+        self.device = get_current_device()
+        self.cuda = self.device.type == "cuda"
 
         self.reset()
 
@@ -458,7 +455,7 @@ class OnlineClusteringDiarizer(ClusteringDiarizer):
             cuda (bool):
                 Boolean indicator for cuda usages
         """
-        device = torch.device("cuda") if cuda else torch.device("cpu")
+        device = get_current_device()
 
         # Get base-scale (the highest index) information from uniq_embs_and_timestamps.
         embeddings_in_scales, timestamps_in_scales = split_input_data(

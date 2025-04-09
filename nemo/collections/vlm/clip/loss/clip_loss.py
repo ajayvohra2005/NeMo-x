@@ -13,6 +13,7 @@
 # limitations under the License.
 from typing import Dict, Tuple
 
+from nemo.utils import get_current_device
 import torch
 import torch.distributed.nn
 from megatron.core import parallel_state
@@ -165,4 +166,4 @@ class ClipMegatronLoss(MegatronLossReduction):
                 loss_tensors_list = [loss_reduced["avg"] for loss_reduced in losses_reduced_per_micro_batch]
                 loss_tensor = torch.concat(loss_tensors_list)
                 return loss_tensor.mean()
-        return torch.tensor(0.0, device=torch.cuda.current_device())
+        return torch.tensor(0.0, device=get_current_device())

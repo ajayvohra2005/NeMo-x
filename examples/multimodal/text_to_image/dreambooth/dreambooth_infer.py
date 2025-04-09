@@ -36,7 +36,7 @@ def main(cfg):
         model_provider=MegatronLatentDiffusion, cfg=cfg, model_cfg_modifier=model_cfg_modifier
     )
     model = megatron_diffusion_model.model
-    model.cuda().eval()
+    model.to(device=get_current_device()).eval()
 
     rng = torch.Generator().manual_seed(cfg.infer.seed)
     pipeline(model, cfg, rng=rng)

@@ -249,7 +249,7 @@ def extract_audio_features(manifest_filepath: str, cfg: DictConfig, record_fn: C
         vad_model = init_frame_vad_model(cfg.vad_model)
     else:
         vad_model = EncDecClassificationModel.from_pretrained("vad_multilingual_marblenet")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_current_device()
     vad_model = vad_model.to(device)
     vad_model.eval()
     vad_model.setup_test_data(
@@ -300,7 +300,7 @@ def run_vad_inference(manifest_filepath: str, cfg: DictConfig, record_fn: Callab
     else:
         raise ValueError(f"Unknown VAD type: {cfg.vad_type}, supported types: ['segment', 'frame']")
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_current_device()
     vad_model = vad_model.to(device)
     vad_model.eval()
 
@@ -492,7 +492,7 @@ def init_asr_model(model_path: str) -> ASRModel:
 def run_asr_inference(manifest_filepath, cfg, record_fn) -> str:
     logging.info("Start ASR inference pipeline...")
     asr_model = init_asr_model(cfg.asr_model)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = get_current_device()
     asr_model = asr_model.to(device)
     asr_model.eval()
 

@@ -16,6 +16,7 @@ import itertools
 from functools import partial
 from typing import Any, Optional
 
+from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.accelerators import CPUAccelerator
 from lightning.pytorch.trainer.trainer import Trainer
@@ -38,7 +39,7 @@ from nemo.collections.vision.data.megatron.data_samplers import MegatronVisionPr
 from nemo.collections.vision.data.megatron.vit_dataset import build_train_valid_datasets
 from nemo.collections.vision.modules.vit.vit_backbone import VitBackbone, VitMlpHead
 from nemo.core.classes.common import PretrainedModelInfo
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -57,6 +58,7 @@ except (ImportError, ModuleNotFoundError):
     logging.warning("Megatron num_microbatches_calculator not found, using Apex version.")
     from apex.transformer.pipeline_parallel.utils import get_num_microbatches
 
+xm = get_xla_model()
 
 class VitClassificationModel(MegatronModule):
     """Vision Transformer Model."""
@@ -151,9 +153,9 @@ class MegatronVitClassificationModel(MegatronBaseModel):
                 # Pre-allocate the model on GPU to have master parameters allocated on the same device with matching data type
                 if isinstance(self.model, list):
                     for module in self.model:
-                        module.cuda(torch.cuda.current_device())
+                        module.cuda(get_current_device())
                 else:
-                    self.model.cuda(torch.cuda.current_device())
+                    self.model.cuda(get_current_device())
 
             # Model wrapper to convert both model and inputs to half precision
             if isinstance(self.model, list):
@@ -327,7 +329,7 @@ class MegatronVitClassificationModel(MegatronBaseModel):
                 loss_mean = []
                 accuracy_mean = []
             else:
-                loss_mean = torch.tensor(0.0).cuda()
+                loss_mean = torch.tensor(0.0).to(device=get_current_device())
                 accuracy_mean = loss_mean.copy()
 
         return loss_mean, accuracy_mean
@@ -460,7 +462,12 @@ class MegatronVitClassificationModel(MegatronBaseModel):
             self._append_sequence_parallel_module_grads(self.model, grads)
 
         coalesced = torch._utils._flatten_dense_tensors(grads)
-        torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
+                        groups=parallel_state.get_tensor_model_parallel_groups(), 
+                        pin_layout=False)
+        else:
+            torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
             buf.copy_(synced)
 
@@ -480,17 +487,17 @@ class MegatronVitClassificationModel(MegatronBaseModel):
         def fwd_output_and_loss_func(dataloader_iter, model):
             batch, _, _ = next(dataloader_iter)
             if parallel_state.get_pipeline_model_parallel_world_size() == 1:
-                batch = [x.cuda(non_blocking=True) for x in batch]
+                batch = [x.to(get_current_device()) for x in batch]
                 tokens, labels = batch
             else:
                 # Vision transformer doesn't need attention mask
                 if parallel_state.is_pipeline_first_stage():
                     # Fist pipeline stage needs only the tokens and position_ids
-                    tokens = batch[0].cuda(non_blocking=True)
+                    tokens = batch[0].to(get_current_device())
                     labels = None
                 elif parallel_state.is_pipeline_last_stage():
                     # Last pipeline stage needs only the labels and loss_mask
-                    labels = batch[1].cuda(non_blocking=True)
+                    labels = batch[1].to(get_current_device())
                     tokens = None
                 else:
                     # Intermediate pipeline stage doesn't need any inputs
@@ -644,9 +651,13 @@ class MegatronVitClassificationModel(MegatronBaseModel):
             num_parameters_on_device = sum([p.nelement() for p in self.model.parameters()])
 
         # to be summed across data parallel group
-        total_num_parameters = torch.tensor(num_parameters_on_device).cuda()
-
-        torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        total_num_parameters = torch.tensor(num_parameters_on_device).to(device=get_current_device())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
+                        groups=parallel_state.get_model_parallel_groups(), 
+                        pin_layout=False)
+        else:
+            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

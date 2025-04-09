@@ -389,7 +389,7 @@ def main(cfg: TranscriptionConfig) -> Union[TranscriptionConfig, List[Hypothesis
 
     timer = SimpleTimer()
     model_measurements = []
-    with torch.amp.autocast('cuda' if torch.cuda.is_available() else 'cpu', dtype=amp_dtype, enabled=cfg.amp):
+    with torch.amp.autocast(get_current_device(), dtype=amp_dtype, enabled=cfg.amp):
         with torch.no_grad():
             override_cfg = asr_model.get_transcribe_config()
             override_cfg.batch_size = cfg.batch_size

@@ -33,6 +33,7 @@
 
 from typing import Dict, List, Tuple
 
+from nemo.utils import get_current_device
 import torch
 from torch.linalg import eigh, eigvalsh
 
@@ -546,7 +547,7 @@ def eigDecompose(laplacian: torch.Tensor, cuda: bool, device: torch.device) -> T
     """
     if cuda:
         if device is None:
-            device = torch.cuda.current_device()
+            device = get_current_device()
         laplacian = laplacian.float().to(device)
     else:
         laplacian = laplacian.float().to(torch.device('cpu'))
@@ -560,7 +561,7 @@ def eigValueSh(laplacian: torch.Tensor, cuda: bool, device: torch.device) -> tor
     """
     if cuda:
         if device is None:
-            device = torch.cuda.current_device()
+            device = get_current_device()
         laplacian = laplacian.float().to(device)
     else:
         laplacian = laplacian.float().to(torch.device('cpu'))
@@ -1162,7 +1163,7 @@ class SpeakerClustering(torch.nn.Module):
         self.maj_vote_spk_count: bool = maj_vote_spk_count
         self.embeddings_in_scales: List[torch.Tensor] = [torch.Tensor(0)]
         self.timestamps_in_scales: List[torch.Tensor] = [torch.Tensor(0)]
-        self.device = torch.device("cuda") if self.cuda else torch.device("cpu")
+        self.device = get_current_device()
 
     def forward_unit_infer(
         self,

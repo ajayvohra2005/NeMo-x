@@ -21,6 +21,7 @@ from functools import cache, partial
 from importlib.metadata import version
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+from nemo.utils import get_current_device, get_current_device_type
 import packaging
 import torch
 from lightning.pytorch.accelerators import CPUAccelerator
@@ -70,7 +71,7 @@ from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes import Exportable
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.neural_types import ChannelType, NeuralType
-from nemo.utils import logging
+from nemo.utils import logging, get_xla_model
 from nemo.utils.import_utils import safe_import, safe_import_from
 from nemo.utils.te_utils import is_float8tensor, te_version
 
@@ -127,6 +128,7 @@ get_gpt_layer_with_te_and_hyena_spec, HAVE_HYENA_SPEC = safe_import_from(
 )
 HAVE_TE = HAVE_TE and HAVE_TE_MODULE and HAVE_HYENA_SPEC
 
+xm = get_xla_model()
 
 @cache
 def mcore_supports_moe() -> bool:
@@ -248,32 +250,32 @@ class MegatronGPTExportableModel(torch.nn.Module, Exportable):
                 transformer_engine.pytorch.fp8_autocast(enabled=self.fp8_enabled, fp8_recipe=self.fp8_recipe),
                 torch.no_grad(),
                 torch.inference_mode(),
-                torch.autocast('cuda', dtype=self.dtype),
+                torch.autocast(get_current_device_type(), dtype=self.dtype),
                 warnings.catch_warnings(),
             ):
                 warnings.filterwarnings(action='ignore', category=torch.jit.TracerWarning, module=r'.*')
                 assert tokens.shape == position_ids.shape
                 assert attention_mask.shape[2] == attention_mask.shape[3] == tokens.shape[1] == position_ids.shape[1]
                 output_tensor = self.model.forward(
-                    tokens=tokens.cuda(),
-                    text_position_ids=position_ids.cuda(),
-                    attention_mask=attention_mask.cuda(),
+                    tokens=tokens.to(device=get_current_device()),
+                    text_position_ids=position_ids.to(device=get_current_device()),
+                    attention_mask=attention_mask.to(device=get_current_device()),
                     labels=None,
                 )
         else:
             with (
                 torch.no_grad(),
                 torch.inference_mode(),
-                torch.autocast('cuda', dtype=self.dtype),
+                torch.autocast(get_current_device_type(), dtype=self.dtype),
                 warnings.catch_warnings(),
             ):
                 warnings.filterwarnings(action='ignore', category=torch.jit.TracerWarning, module=r'.*')
                 assert tokens.shape == position_ids.shape
                 assert attention_mask.shape[2] == attention_mask.shape[3] == tokens.shape[1] == position_ids.shape[1]
                 output_tensor = self.model.forward(
-                    tokens=tokens.cuda(),
-                    text_position_ids=position_ids.cuda(),
-                    attention_mask=attention_mask.cuda(),
+                    tokens=tokens.to(device=get_current_device()),
+                    text_position_ids=position_ids.to(device=get_current_device()),
+                    attention_mask=attention_mask.to(device=get_current_device()),
                     labels=None,
                 )
 
@@ -422,9 +424,9 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 # on the same device with matching data type
                 if isinstance(self.model, list):
                     for module in self.model:
-                        module.cuda(torch.cuda.current_device())
+                        module.cuda(get_current_device())
                 else:
-                    self.model.cuda(torch.cuda.current_device())
+                    self.model.cuda(get_current_device())
 
             self._wrap_model_for_O2()
 
@@ -785,7 +787,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 loss_sum = (
                     torch.vstack(loss_sum_tensors_list).sum(axis=0)
                     if len(loss_sum_tensors_list) > 0
-                    else torch.tensor([0.0, 0.0]).cuda()
+                    else torch.tensor([0.0, 0.0]).to(device=get_current_device())
                 )
                 return loss_sum
         else:
@@ -793,7 +795,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             if forward_only:
                 loss_mean = []
             else:
-                loss_mean = torch.tensor(0.0).cuda()
+                loss_mean = torch.tensor(0.0).to(device=get_current_device())
 
         return loss_mean
 
@@ -1097,7 +1099,12 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             # may be empty for PEFT training
             return
         coalesced = torch._utils._flatten_dense_tensors(grads)
-        torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
+        if xm:
+            xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
+                            groups=parallel_state.get_tensor_model_parallel_groups(), 
+                                pin_layout=False)
+        else:
+            torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
             buf.copy_(synced)
 
@@ -1111,7 +1118,12 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 grads.append(grad.data)
         if len(grads) > 0:
             coalesced = torch._utils._flatten_dense_tensors(grads)
-            torch.distributed.all_reduce(coalesced, group=parallel_state.get_data_parallel_group())
+            if xm:
+                xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
+                                groups=parallel_state.get_data_parallel_groups(), 
+                                pin_layout=False)
+            else:
+                torch.distributed.all_reduce(coalesced, group=parallel_state.get_data_parallel_group())
             for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
                 buf.copy_(synced)
 
@@ -1147,7 +1159,12 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                         grad = word_embeddings_weight.main_grad
                     else:
                         grad = word_embeddings_weight.grad
-                    torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_SUM, [grad], 
+                                        groups=parallel_state.get_embedding_groups(), 
+                                pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
 
     def _make_data_iterator_list(self, data_iterator: Iterator) -> List[Iterator]:
         """Convert data iterator into form expected by Megatron
@@ -1259,7 +1276,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                         )
                         index = torch.tensor(
                             [cp_rank, (2 * cp_size - cp_rank - 1)], device="cpu", pin_memory=True
-                        ).cuda(non_blocking=True)
+                        ).to(get_current_device())
                         val = val.index_select(seq_dim, index)
                         val = val.view(*val.shape[0:seq_dim], -1, *val.shape[(seq_dim + 2) :])
                         batch[key] = val
@@ -1295,7 +1312,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             if self.get_attention_mask_from_fusion and 'attention_mask' in required_keys:
                 required_keys.remove('attention_mask')
             batch = {
-                key: val.cuda(non_blocking=True) if key in required_keys and isinstance(val, torch.Tensor) else None
+                key: val.to(get_current_device()) if key in required_keys and isinstance(val, torch.Tensor) else None
                 for key, val in batch.items()
             }
 
@@ -1456,14 +1473,19 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     loss_sum_and_ub_size_all_gpu = torch.cat(
                         [
                             loss_sum_for_ub.clone().detach().view(1),
-                            torch.tensor([num_valid_tokens_in_ub]).cuda().clone().detach(),
+                            torch.tensor([num_valid_tokens_in_ub]).to(device=get_current_device()).clone().detach(),
                         ]
                     )
                     # Could potentially reduce num_valid_samples_in_microbatch and use that to
                     # aggregate instead of len(self._validation_ds)
-                    torch.distributed.all_reduce(
-                        loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
-                    )
+                    if xm:
+                        xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
+                                        groups=parallel_state.get_data_parallel_groups(), 
+                                pin_layout=False)
+                    else:
+                        torch.distributed.all_reduce(
+                            loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
+                        )
                     return loss_for_ub * cp_size, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}
                 else:
                     reduced_loss = average_losses_across_data_parallel_group([loss_for_ub])
@@ -1481,7 +1503,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 batch = batch[0]
             extra_arg = {}
             if len(batch) == 3:
-                batch = [x.cuda() for x in batch]
+                batch = [x.to(device=get_current_device()) for x in batch]
                 tokens, attention_mask, position_ids = batch
                 attention_mask = attention_mask[0:1]
             else:
@@ -1492,10 +1514,10 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     set_inference_key_value_memory,
                     inference_max_sequence_len,
                 ) = batch
-                tokens = tokens.cuda()
-                position_ids = position_ids.cuda()
+                tokens = tokens.to(device=get_current_device())
+                position_ids = position_ids.to(device=get_current_device())
                 if attention_mask is not None:
-                    attention_mask = attention_mask.cuda()
+                    attention_mask = attention_mask.to(device=get_current_device())
                     attention_mask = attention_mask[0:1]
                 if self.mcore_gpt:
                     # if first step, then clear KV cache, otherwise reuse inference_paarms
@@ -1589,9 +1611,9 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 # Compute the avg loss by total_loss across all samples / total number of samples
                 total_loss_and_total_samples = torch.vstack(self.validation_step_outputs).sum(axis=0)
                 avg_loss = total_loss_and_total_samples[0] / total_loss_and_total_samples[1]
-                averaged_loss = avg_loss.type(torch.float32).cuda()
+                averaged_loss = avg_loss.type(torch.float32).to(device=get_current_device())
         else:
-            averaged_loss = torch.tensor(0.0, dtype=torch.float32).cuda()
+            averaged_loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())
 
         # When using pipeline parallelism, loss is calculated only in the last pipeline stage and
         # it should be casted to other pipeline stages for logging.
@@ -1623,7 +1645,12 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         # TODO: add nemo version here
         loss = torch.sum(losses.view(-1) * loss_mask) / num_valid_tokens_in_ub  # sequence level nll
         if parallel_state.get_context_parallel_world_size() > 1:
-            torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
+            if xm:
+                xm.all_reduce(xm.REDUCE_SUM, [loss], 
+                            groups=parallel_state.get_context_parallel_groups(), 
+                            pin_layout=False)
+            else:
+                torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
         return loss
 
     def build_train_valid_test_datasets(self):
@@ -1913,7 +1940,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         strategy_args = {} if strategy is None else {"strategy": strategy}
 
         return megatron_gpt_generate(
-            self.cuda(), inputs, self.tokenizer, length_params, sampling_params, **strategy_args
+            self.to(device=get_current_device()), inputs, self.tokenizer, length_params, sampling_params, **strategy_args
         )
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: Optional[int] = None) -> Any:

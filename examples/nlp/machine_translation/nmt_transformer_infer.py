@@ -179,7 +179,7 @@ def main():
     all_timing = []
 
     if torch.cuda.is_available():
-        models = [model.cuda() for model in models]
+        models = [model.to(device=get_current_device()) for model in models]
 
     if args.lm_model is not None:
         lm_model = nemo_nlp.models.language_modeling.TransformerLMModel.restore_from(restore_path=args.lm_model).eval()

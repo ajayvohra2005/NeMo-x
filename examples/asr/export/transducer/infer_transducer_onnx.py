@@ -136,7 +136,7 @@ def resolve_audio_filepaths(args):
 def main():
     args = parse_arguments()
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = get_current_device()
 
     # Instantiate pytorch model
     if args.nemo_model is not None:

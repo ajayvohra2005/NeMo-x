@@ -19,6 +19,7 @@ from argparse import ArgumentParser
 from glob import glob
 from pathlib import Path
 
+from nemo.utils import get_current_device
 import torch
 import torchvision
 from PIL import Image
@@ -102,11 +103,11 @@ def to_imgstr(image_tokens, tokenizer):
 def main(args):
     """Main Function"""
 
-    gpu_rank = torch.cuda.current_device()
+    gpu_rank = get_current_device()
     world_size = torch.cuda.device_count()
 
     tokenizer = AutoTokenizer.from_pretrained(EMU_HUB, trust_remote_code=True)
-    image_tokenizer = AutoModel.from_pretrained(VQ_HUB, device_map="cuda", trust_remote_code=True).eval()
+    image_tokenizer = AutoModel.from_pretrained(VQ_HUB, device_map=get_current_device(), trust_remote_code=True).eval()
 
     # prepare input
     text = "Please describe the image"
