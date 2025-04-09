@@ -19,6 +19,7 @@ import time
 
 import numpy as np
 import torch
+from nemo.utils import get_current_device
 from omegaconf.dictconfig import DictConfig
 
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
@@ -692,7 +693,7 @@ def _build_index_mappings(
             )
 
     torch.distributed.barrier()
-    counts = torch.cuda.LongTensor([1])
+    counts = torch.LongTensor([1]).to(get_current_device())
     if xm:
         xm.all_reduce(xm.REDUCE_SUM, [counts], 
                     groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 

@@ -599,7 +599,8 @@ class NLPDDPStrategy(DDPStrategy):
             checkpoint_path = inject_model_parallel_rank(checkpoint_path)
             if not fs.exists(checkpoint_path):
                 raise FileNotFoundError(f"Checkpoint at {checkpoint_path} not found. Aborting training.")
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             start_time = time.monotonic()
             checkpoint = self.checkpoint_io.load_checkpoint(checkpoint_path)
             end_time = time.monotonic()
@@ -1007,7 +1008,8 @@ class NLPFSDPStrategy(FSDPStrategy):
         checkpoint_path = inject_model_parallel_rank(checkpoint_path, fsdp_sharded_ckpt=self.sharded_checkpoint)
         if not fs.exists(checkpoint_path):
             raise FileNotFoundError(f"Checkpoint at {checkpoint_path} not found. Aborting training.")
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         from torch.distributed._shard.api import load_with_process_group
 

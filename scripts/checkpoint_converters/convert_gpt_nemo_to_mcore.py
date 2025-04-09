@@ -334,7 +334,8 @@ if __name__ == '__main__':
         logging.error("Could not convert due to torch.cuda.OutOfMemoryError.")
         logging.error("Please run the script with --cpu-only flag")
         exit(1)
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     try:
         run_sanity_checks(input_nemo_file, output_nemo_file, cpu_only=cpu_only, ignore_if_missing=ignore_if_missing)
     except torch.cuda.OutOfMemoryError:

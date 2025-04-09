@@ -598,7 +598,8 @@ class EncDecDiarLabelModel(ModelPT, ExportableEncDecModel):
         # loss = self.loss(probs=preds, labels=targets, signal_lengths=sequence_lengths)
         loss = self.loss(probs=preds, labels=targets, target_lens=sequence_lengths)
         self._accuracy_train(preds, targets, sequence_lengths)
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         f1_acc, _, _ = self._accuracy_train.compute()
         self.log('loss', loss, sync_dist=True)
         self.log('learning_rate', self._optimizer.param_groups[0]['lr'], sync_dist=True)

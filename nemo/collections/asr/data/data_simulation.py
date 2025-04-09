@@ -413,7 +413,8 @@ class MultiSpeakerSimulator(object):
         self._words = []
         self._alignments = []
         self._audio_read_buffer_dict = {}
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     def _get_speaker_dominance(self) -> List[float]:
         """

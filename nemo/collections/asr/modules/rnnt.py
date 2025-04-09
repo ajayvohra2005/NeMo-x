@@ -1572,7 +1572,8 @@ class RNNTJoint(rnnt_abstract.AbstractRNNTJoint, Exportable, AdapterModuleMixin)
         del inp
 
         if self.preserve_memory:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         # If log_softmax is automatic
         if self.log_softmax is None:
@@ -2200,7 +2201,8 @@ class SampledRNNTJoint(RNNTJoint):
         del inp
 
         if self.preserve_memory:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         # If log_softmax is automatic
         if self.log_softmax is None:

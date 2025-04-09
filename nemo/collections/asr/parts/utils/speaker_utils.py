@@ -506,7 +506,8 @@ def perform_clustering(
 
         del uniq_embs_and_timestamps
         if cuda:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         else:
             gc.collect()
         timestamps = speaker_clustering.timestamps_in_scales[base_scale_idx]

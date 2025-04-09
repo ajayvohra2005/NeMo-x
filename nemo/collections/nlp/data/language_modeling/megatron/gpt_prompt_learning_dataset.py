@@ -418,13 +418,13 @@ class GPTPromptLearningDataset(Dataset):
         Used for loading inference data.
         """
         task_id_nums, input_ids, answer_starts = zip(*batch)
-        input_lengths = torch.cuda.LongTensor([len(inputs) for inputs in input_ids])
-        task_id_nums = torch.cuda.LongTensor(task_id_nums)
+        input_lengths = torch.LongTensor([len(inputs) for inputs in input_ids]).to(get_current_device())
+        task_id_nums = torch.LongTensor(task_id_nums).to(get_current_device())
         batch_max = input_lengths.max().item()
         batch_max += self.tokens_to_generate
 
         input_ids, _ = self.pad_batch_and_build_loss_mask(input_ids, batch_max, answer_starts)
         input_ids = input_ids.to(device=get_current_device())
-        input_ids = torch.cuda.LongTensor(input_ids)
+        input_ids = torch.LongTensor(input_ids).to(get_current_device())
 
         return task_id_nums, (input_ids, input_lengths)

@@ -166,7 +166,7 @@ class MegatronModule(torch.nn.Module):
         if torch.distributed.is_initialized():
             if parallel_state.is_rank_in_embedding_group() and self.share_token_embeddings:
                 if xm:
-                    xm.all_reduce(xm.REDUCE_SUM, [self.word_embeddings_weight().data], 
+                    xm.all_reduce(xm.REDUCE_SUM, [self.word_embeddings_weight()], 
                                 groups=parallel_state.get_embedding_groups(), 
                                 pin_layout=False)
                 else:
@@ -194,7 +194,7 @@ class MegatronModule(torch.nn.Module):
             # self.language_model.embedding.to(device=get_current_device())
             position_embeddings = self.position_embeddings_weight()
             if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings.data], 
+                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings], 
                             groups=parallel_state.get_embedding_groups(), 
                             pin_layout=False)
             else:
@@ -210,7 +210,7 @@ class MegatronModule(torch.nn.Module):
         if parallel_state.is_rank_in_encoder_relative_position_embedding_group():
             position_embeddings = self.encoder_relative_position_embeddings_weight()
             if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings.data], 
+                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings], 
                             groups=parallel_state.get_encoder_relative_position_embedding_groups(), 
                             pin_layout=False)
             else:
@@ -222,7 +222,7 @@ class MegatronModule(torch.nn.Module):
         if parallel_state.is_rank_in_decoder_relative_position_embedding_group():
             position_embeddings = self.decoder_relative_position_embeddings_weight()
             if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings.data], 
+                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings], 
                             groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
                             pin_layout=False)
             else:
@@ -234,7 +234,7 @@ class MegatronModule(torch.nn.Module):
         if parallel_state.is_rank_in_decoder_relative_position_embedding_group():
             position_embeddings = self.decoder_cross_attention_relative_position_embeddings_weight()
             if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings.data], 
+                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings], 
                             groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
                             pin_layout=False)
             else:

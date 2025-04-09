@@ -197,7 +197,8 @@ class HATJoint(rnnt.RNNTJoint):
         del g, blank_logprob, label_logprob, label_logit, scale_prob, label_logprob_scaled
 
         if self.preserve_memory:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         return res
 

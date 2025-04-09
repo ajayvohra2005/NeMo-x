@@ -38,6 +38,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from nemo.utils import get_current_device
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 
@@ -1345,7 +1346,7 @@ def get_samples_mapping(
 
     if sanity_check_dist_workers:
         torch.distributed.barrier()
-        counts = torch.cuda.LongTensor([1])
+        counts = torch.LongTensor([1]).to(get_current_device())
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [counts], 
                         groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 

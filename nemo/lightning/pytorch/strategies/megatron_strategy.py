@@ -881,7 +881,8 @@ class MegatronStrategy(DDPStrategy, io.IOMixin):
         the distributed load function. We get the sharded_state_dict from self.lightning_module
         which makes it convenient to have the loading logic happen at the strategy level.
         """
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         if HAVE_MODELOPT:
             # If present, first restore and modify the model according to the ModelOpt state.
@@ -946,7 +947,8 @@ class MegatronStrategy(DDPStrategy, io.IOMixin):
             self.load_optimizer_state_dict(checkpoint=checkpoint, selective_restore=True)
 
         logging.info(f"Finished restoring from {self.restore_config}, cleaning up.")
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         # wait for all to catch up
         self.trainer.strategy.barrier("MegatronStrategy.restore_end")
 

@@ -110,8 +110,8 @@ class TextGenerationStrategy:
         else:
             context_tokens = [tokenizer.text_to_ids(s) for s in sentences]
         context_tokens, context_lengths = pad_batch(context_tokens, tokenizer.eos_id, max_len)
-        context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-        context_length_tensor = torch.cuda.LongTensor(context_lengths)
+        context_tokens_tensor = torch.LongTensor(context_tokens).to(get_current_device())
+        context_length_tensor = torch.LongTensor(context_lengths).to(get_current_device())
         return context_tokens_tensor, context_length_tensor
 
     @abc.abstractclassmethod
@@ -695,8 +695,8 @@ class NevaModelTextGenerationStrategy(TextGenerationStrategy):
             raise ValueError(f'{type(prompt)} is not supported for tokenization')
 
         context_tokens, context_lengths = pad_batch(context_tokens, self.tokenizer.eos_id, max_len)
-        context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-        context_length_tensor = torch.cuda.LongTensor(context_lengths)
+        context_tokens_tensor = torch.LongTensor(context_tokens).to(get_current_device())
+        context_length_tensor = torch.LongTensor(context_lengths).to(get_current_device())
         return context_tokens_tensor, context_length_tensor
 
     def prepare_batch_at_step(
@@ -859,8 +859,8 @@ class McoreRetroModelTextGenerationStrategy(TextGenerationStrategy):
         # attention, not pad_batch, padding will be done at init_batch
         context_tokens, context_lengths = pad_batch(batch=context_tokens, pad_id=tokenizer.eos_id, max_len=0)
 
-        context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-        context_length_tensor = torch.cuda.LongTensor(context_lengths)
+        context_tokens_tensor = torch.LongTensor(context_tokens).to(get_current_device())
+        context_length_tensor = torch.LongTensor(context_lengths).to(get_current_device())
         return context_tokens_tensor, context_length_tensor
 
     def tokenize_neighbors_batch(self, neighbors, retro_args):
@@ -906,8 +906,8 @@ class McoreRetroModelTextGenerationStrategy(TextGenerationStrategy):
             padded_valid_neighbours_tokens.append(padded_valid_onesample_neighbours_tokens)
 
         # cast to torch tensor
-        padded_valid_neighbours_tokens = torch.cuda.LongTensor(padded_valid_neighbours_tokens)
-        padded_valid_neighbours_tokens_shape = torch.cuda.LongTensor(padded_valid_neighbours_tokens.shape)
+        padded_valid_neighbours_tokens = torch.LongTensor(padded_valid_neighbours_tokens).to(get_current_device())
+        padded_valid_neighbours_tokens_shape = torch.LongTensor(padded_valid_neighbours_tokens.shape).to(get_current_device())
 
         return padded_valid_neighbours_tokens, padded_valid_neighbours_tokens_shape
 
@@ -918,7 +918,7 @@ class McoreRetroModelTextGenerationStrategy(TextGenerationStrategy):
         bs, context_tokens_length = context_tokens.shape
         assert bs == 1  # similar to M-LM RETRO inference code, currently only support batch_size=1
         context_tokens = [context_tokens[0].tolist() + [self.model.tokenizer.eos_id] * context_tokens_length]
-        context_tokens = torch.cuda.LongTensor(context_tokens)
+        context_tokens = torch.LongTensor(context_tokens).to(get_current_device())
         self.model.model.config.retro_gpt_chunk_length = context_tokens_length  # set RetroConfig of M-LM's RETRO model
         # reshape tensor extra['neighbors_tokens'] (currently: [k, 1, r]) to [bs, l, k, r]
         neighbors_tokens = extra['neighbors_tokens']

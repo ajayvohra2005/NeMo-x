@@ -292,7 +292,8 @@ class SortformerEncLabelModel(ModelPT, ExportableEncDecModel, SpkDiarizationMixi
         with torch.no_grad():
             preds = self.forward(audio_signal=batch[0], audio_signal_length=batch[1])
             preds = preds.to('cpu')
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         return preds
 
     def _diarize_output_processing(
@@ -411,7 +412,8 @@ class SortformerEncLabelModel(ModelPT, ExportableEncDecModel, SpkDiarizationMixi
             input_signal=audio_signal, length=audio_signal_length
         )
         if not self.training:
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         return processed_signal, processed_signal_length
 
     def forward(
@@ -682,7 +684,8 @@ class SortformerEncLabelModel(ModelPT, ExportableEncDecModel, SpkDiarizationMixi
                     self.preds_total_list.append(preds)
                 else:
                     self.preds_total_list.extend(torch.split(preds, [1] * preds.shape[0]))
-                torch.cuda.empty_cache()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
         logging.info(f"Batch F1Acc. MEAN: {torch.mean(torch.tensor(self.batch_f1_accs_list))}")
         logging.info(f"Batch Precision MEAN: {torch.mean(torch.tensor(self.batch_precision_list))}")

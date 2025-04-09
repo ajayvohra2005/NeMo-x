@@ -105,7 +105,7 @@ def main(cfg) -> None:
         server.run("0.0.0.0", port=cfg.port)
 
     while True:
-        choice = torch.cuda.LongTensor(1)
+        choice = torch.LongTensor(1).to(get_current_device())
         torch.distributed.broadcast(choice, 0)
         if choice[0].item() == 0:
             generate(model.to(device=get_current_device()), strategy=model.inference_strategy)

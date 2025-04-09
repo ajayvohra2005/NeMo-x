@@ -325,7 +325,8 @@ class FabricMegatronStrategy(DDPStrategy):
         if isinstance(state, Optimizer):
             raise NotImplementedError("Optimizer loading is not supported, pass it as a dict including the model")
 
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # After dist_checkpointing.load, sharded tensors will be replaced with tensors
         sharded_state_dict = {}

@@ -81,8 +81,8 @@ class RetroModelTextGenerationStrategy(TextGenerationStrategy):
                     padded.append(line)
             context_tokens = padded
         context_tokens, context_lengths = pad_batch(context_tokens, tokenizer.eos_id, max_len)
-        context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-        context_length_tensor = torch.cuda.LongTensor(context_lengths)
+        context_tokens_tensor = torch.LongTensor(context_tokens).to(get_current_device())
+        context_length_tensor = torch.LongTensor(context_lengths).to(get_current_device())
         return context_tokens_tensor, context_length_tensor
 
     def tokenize_batch_with_context_and_completion(self, sentences, max_len, add_BOS):
@@ -116,8 +116,8 @@ class RetroModelTextGenerationStrategy(TextGenerationStrategy):
                     padded.append(line[0] + line[1])
             context_tokens = padded
         context_tokens, context_lengths = pad_batch(context_tokens, tokenizer.eos_id, max_len)
-        context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-        context_length_tensor = torch.cuda.LongTensor(context_lengths)
+        context_tokens_tensor = torch.LongTensor(context_tokens).to(get_current_device())
+        context_length_tensor = torch.LongTensor(context_lengths).to(get_current_device())
         return context_tokens_tensor, context_length_tensor
 
     def clip_max_len(self, maxlen: int) -> int:
@@ -281,8 +281,8 @@ class RetroQAModelTextGenerationStrategy(RetroModelTextGenerationStrategy):
                     padded.append([tokenizer.pad_id] * pad_len + line)
             context_tokens = padded
         context_tokens, context_lengths = pad_batch(context_tokens, tokenizer.eos_id, max_len)
-        context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-        context_length_tensor = torch.cuda.LongTensor(context_lengths)
+        context_tokens_tensor = torch.LongTensor(context_tokens).to(get_current_device())
+        context_length_tensor = torch.LongTensor(context_lengths).to(get_current_device())
         return context_tokens_tensor, context_length_tensor
 
     def init_batch(self, context_tokens: torch.Tensor, context_length: int):
@@ -454,6 +454,6 @@ class RetroFileQAModelTextGenerationStrategy(RetroQAModelTextGenerationStrategy)
                 padded.append([tokenizer.eos_id] * pad_len + line)
             context_tokens = padded
         context_tokens, context_lengths = pad_batch(context_tokens, tokenizer.eos_id, max_len)
-        context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-        context_length_tensor = torch.cuda.LongTensor(context_lengths)
+        context_tokens_tensor = torch.LongTensor(context_tokens).to(get_current_device())
+        context_length_tensor = torch.LongTensor(context_lengths).to(get_current_device())
         return context_tokens_tensor, context_length_tensor

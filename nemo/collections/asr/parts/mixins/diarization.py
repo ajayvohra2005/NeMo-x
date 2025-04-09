@@ -265,7 +265,8 @@ class SpkDiarizationMixin(ABC):
 
                     # clear up memory
                     del test_batch, pred_outputs, processed_outputs
-                    torch.cuda.empty_cache()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
 
         finally:
             # set mode back to its original value

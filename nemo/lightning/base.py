@@ -71,7 +71,8 @@ def teardown(trainer: Trainer, model: Optional[nn.Module] = None) -> None:
                 pass
 
     gc.collect()
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 __all__ = ["get_vocab_size", "teardown"]

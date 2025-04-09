@@ -461,7 +461,8 @@ def _reset_megatron_parallel_state():
     """  # noqa: D205, D415
     megatron.core.num_microbatches_calculator._GLOBAL_NUM_MICROBATCHES_CALCULATOR = None
     # Clean up any process groups created in testing
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     if parallel_state.is_initialized():
         parallel_state.destroy_model_parallel()
     if torch.distributed.is_initialized():

@@ -930,7 +930,8 @@ class MagpieTTS_Model(ModelPT):
 
             predicted_audio, predicted_audio_lens = self.codes_to_audio(predicted_codes, predicted_codes_lens)
 
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             return predicted_audio, predicted_audio_lens, predicted_codes, predicted_codes_lens
 
     def test_step(self, batch, batch_idx):

@@ -31,7 +31,7 @@ from nemo.collections.nlp.modules.common.retro_inference_strategies import (
     RetroQAModelTextGenerationStrategy,
 )
 from nemo.collections.nlp.modules.common.text_generation_utils import generate
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device
 
 GENERATE_NUM = 0
 lock = threading.Lock()
@@ -64,7 +64,7 @@ class MegatronGenerate(Resource):
 
     @staticmethod
     def send_do_generate():
-        choice = torch.cuda.LongTensor([GENERATE_NUM])
+        choice = torch.LongTensor([GENERATE_NUM]).to(get_current_device())
         torch.distributed.broadcast(choice, 0)
 
     def convert_messages(self, input_list):

@@ -2104,6 +2104,8 @@ class ModelPT(LightningModule, Model):
         Returns:
             Module: self
         """
+
+        assert torch.cuda.is_available(), "CUDA is not available"
         if device is None:
             device = get_current_device()
         elif isinstance(device, int):

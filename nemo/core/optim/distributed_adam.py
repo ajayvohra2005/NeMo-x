@@ -34,7 +34,7 @@ from megatron.core.dist_checkpointing.dict_utils import dict_list_map_inplace
 from megatron.core.dist_checkpointing.mapping import ShardedTensor
 from megatron.core.dist_checkpointing.optimizer import get_param_id_to_sharded_param_map, optim_state_to_sharding_state
 
-from nemo.utils import logging, str_to_dtype
+from nemo.utils import logging, str_to_dtype, get_xla_model
 from nemo.utils.te_utils import is_float8tensor, is_mxfp8tensor, te_version
 
 if te_version() >= (2, 0):
@@ -101,6 +101,7 @@ else:
     def _get_fp8_scale_and_amax_impl(*args, **kwargs):
         raise RuntimeError("Invalid Transformer Engine version for FP8 distributed optimizer")
 
+xm = get_xla_model()
 
 def quantize_param_fragment(
     input_: torch.Tensor,
@@ -213,6 +214,8 @@ class MegatronDistributedFusedAdam(DistributedFusedAdam):
         **kwargs,
     ):
 
+        assert xm is None, "MegatronDistributedFusedAdam not supported for XLA"
+        
         # Initialize process groups
         if 'process_group' not in kwargs and parallel_state.is_initialized():
             kwargs['process_group'] = parallel_state.get_data_parallel_group(with_context_parallel=True)

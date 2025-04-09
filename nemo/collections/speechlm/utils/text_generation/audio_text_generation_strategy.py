@@ -16,6 +16,7 @@ import warnings
 from abc import abstractmethod
 from typing import Dict, List, Optional, Set, Tuple
 
+from nemo.utils import get_current_device
 import pytorch_lightning as pl
 import torch
 from megatron.core import InferenceParams, parallel_state
@@ -107,8 +108,8 @@ class TextGenerationStrategy:
         else:
             context_tokens = [tokenizer.text_to_ids(s) for s in sentences]
         context_tokens, context_lengths = pad_batch(context_tokens, tokenizer.eos_id, max_len)
-        context_tokens_tensor = torch.cuda.LongTensor(context_tokens)
-        context_length_tensor = torch.cuda.LongTensor(context_lengths)
+        context_tokens_tensor = torch.LongTensor(context_tokens).to(get_current_device())
+        context_length_tensor = torch.LongTensor(context_lengths).to(get_current_device())
         return context_tokens_tensor, context_length_tensor
 
     @classmethod

@@ -300,7 +300,8 @@ class FSDPStrategy(PLFSDPStrategy, io.IOMixin):
         6. Return the loaded checkpoint for lightning to load other metadata
         """
         path = Path(self.broadcast(checkpoint_path))
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         # TODO: the elegant way to load both state dicts. Need pytorch 2.3.1
         # msd, osd = get_state_dict(self.model, self.optimizers, options=StateDictOptions(cpu_offload=True))

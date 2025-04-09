@@ -84,7 +84,8 @@ def teacher_provider(
         strict = strict in strict_options
     model.load_state_dict(state_dict, strict=strict)
 
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     logging.info("Distillation: teacher weights loaded.")
     return model
 

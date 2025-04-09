@@ -577,7 +577,8 @@ class FluxInferencePipeline(nn.Module):
         if offload:
             self.t5_encoder.to('cpu')
             self.clip_encoder.to('cpu')
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         ## prepare image latents
         num_channels_latents = self.transformer.in_channels // 4
@@ -621,7 +622,8 @@ class FluxInferencePipeline(nn.Module):
                     latents = self.scheduler.step(pred, t, latents)[0]
             if offload:
                 self.transformer.to('cpu')
-                torch.cuda.empty_cache()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
             if output_type == "latent":
                 return latents.transpose(0, 1)
@@ -633,7 +635,8 @@ class FluxInferencePipeline(nn.Module):
                     image = self.vae.decode(latents)
                 if offload:
                     self.vae.to('cpu')
-                    torch.cuda.empty_cache()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
                 image = FluxInferencePipeline.denormalize(image)
                 image = FluxInferencePipeline.torch_to_numpy(image)
                 image = FluxInferencePipeline.numpy_to_pil(image)
@@ -887,7 +890,8 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
         if offload:
             self.t5_encoder.to('cpu')
             self.clip_encoder.to('cpu')
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         ## prepare image latents
         num_channels_latents = self.transformer.in_channels // 4
@@ -981,7 +985,8 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
                     latents = self.scheduler.step(pred, t, latents)[0]
             if offload:
                 self.transformer.to('cpu')
-                torch.cuda.empty_cache()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
             if output_type == "latent":
                 return latents.transpose(0, 1)
@@ -993,7 +998,8 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
                     image = self.vae.decode(latents)
                 if offload:
                     self.vae.to('cpu')
-                    torch.cuda.empty_cache()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
                 image = FluxInferencePipeline.denormalize(image)
                 image = FluxInferencePipeline.torch_to_numpy(image)
                 image = FluxInferencePipeline.numpy_to_pil(image)

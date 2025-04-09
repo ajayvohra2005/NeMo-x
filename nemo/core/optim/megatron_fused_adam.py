@@ -16,6 +16,7 @@ import amp_C
 import torch
 
 from nemo.utils.model_utils import param_is_not_shared
+from nemo.utils import get_xla_model
 
 try:
     from megatron.core import parallel_state
@@ -36,6 +37,7 @@ try:
 except ModuleNotFoundError:
     HAVE_APEX = False
 
+xm = get_xla_model()
 
 class MegatronFusedAdam(FusedAdam):
     """Wrapper class that supports NeMo-Megatron optimizations
@@ -46,6 +48,7 @@ class MegatronFusedAdam(FusedAdam):
     def __init__(self, *args, max_norm=0, norm_type=2, **kwargs):
         super().__init__(*args, **kwargs)
 
+        assert xm is None, "MegatronFusedAdam is not supported for XLA"
         assert norm_type == 2, "Currently only norm_type=2 is supported for MegatronFusedAdam"
 
         # Gradient clipping parameters
