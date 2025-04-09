@@ -490,7 +490,7 @@ class TransformerCrossAttention(NeuralModule, Exportable):
         assert input_embeds.shape[-1] == encoder_states.shape[-1], (
             f"Last dimension of the following shapes must be equal: " f"{input_embeds.shape=} {encoder_states.shape=}"
         )
-        with torch.autocast(device_type=get_current_device_type()):  # megatron_amp_O2 friendly
+        with torch.amp.autocast(device_type=get_current_device_type()):  # megatron_amp_O2 friendly
             enc_mask = lens_to_mask(encoded_len, encoder_states.shape[1]).to(encoder_states.dtype)
             dec_mask = lens_to_mask(input_lengths, input_embeds.shape[1]).to(input_lengths.dtype)
             y = self.xattn_decoder(

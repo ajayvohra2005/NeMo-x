@@ -853,7 +853,7 @@ class ParallelHyenaOperator(nn.Module):
             h = h.repeat_interleave(self.group_dim, dim=-2)
 
             z = x2 * v
-            # with torch.autocast("cuda"):
+            # with torch.amp.autocast("cuda"):
             z = fftconv_func(
                 u=z.to(torch.float32),
                 k=h.to(torch.float32),

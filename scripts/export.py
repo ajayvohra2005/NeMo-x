@@ -156,7 +156,7 @@ def nemo_export(argv):
         model.set_export_config(kv)
 
     try:
-        with torch.autocast(args.device, enabled=args.autocast), torch.no_grad(), torch.inference_mode():
+        with torch.amp.autocast(args.device, enabled=args.autocast), torch.no_grad(), torch.inference_mode():
             model.to(device=args.device).freeze()
             model.eval()
             input_example = None

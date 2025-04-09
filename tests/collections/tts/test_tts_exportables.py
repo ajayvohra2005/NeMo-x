@@ -17,6 +17,7 @@ import tempfile
 from nemo.utils import get_current_device
 import pytest
 import torch
+from nemo.utils import get_current_device_type
 from omegaconf import OmegaConf
 
 from nemo.collections.tts.models import FastPitchModel, HifiGanModel, RadTTSModel
@@ -87,7 +88,7 @@ class TestExportable:
         model = radtts_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'rad.ts')
-            with torch.cuda.amp.autocast(enabled=True, cache_enabled=False, dtype=torch.float16):
+            with torch.amp.autocast(get_current_device_type(), enabled=True, cache_enabled=False, dtype=torch.float16):
                 input_example1 = model.input_module.input_example(max_batch=13, max_dim=777)
                 input_example2 = model.input_module.input_example(max_batch=19, max_dim=999)
                 model.export(output=filename, verbose=True, input_example=input_example1, check_trace=[input_example2])
@@ -99,7 +100,7 @@ class TestExportable:
         model = radtts_model.to(device=get_current_device())
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = os.path.join(tmpdir, 'rad.onnx')
-            with torch.cuda.amp.autocast(enabled=True, cache_enabled=False, dtype=torch.float16):
+            with torch.amp.autocast(get_current_device_type(), enabled=True, cache_enabled=False, dtype=torch.float16):
                 input_example1 = model.input_module.input_example(max_batch=13, max_dim=777)
                 input_example2 = model.input_module.input_example(max_batch=19, max_dim=999)
                 model.export(

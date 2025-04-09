@@ -230,7 +230,7 @@ def main():
         support_att_mask = False
     logging.info(f"Rescoring with beam_size: {args.beam_size}")
     logging.info("Calculating the scores...")
-    with torch.autocast(model.device.type, enabled=args.use_amp):
+    with torch.amp.autocast(model.device.type, enabled=args.use_amp):
         with torch.no_grad():
             am_scores, lm_scores, dists, ref_lens, lens_in_chars = [], [], [], [], []
             for batch in tqdm.tqdm(data_loader):

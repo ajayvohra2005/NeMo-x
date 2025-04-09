@@ -137,7 +137,7 @@ class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
                 enc_input=encoder_input,
             )
         else:
-            with torch.autocast(device_type=get_current_device_type(), dtype=self.autocast_dtype):
+            with torch.amp.autocast(device_type=get_current_device_type(), dtype=self.autocast_dtype):
                 output = self.frozen_model.enc_dec_model(
                     enc_input_ids=None,
                     enc_attn_mask=enc_mask,

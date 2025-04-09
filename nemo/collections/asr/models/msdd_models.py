@@ -22,7 +22,7 @@ from pathlib import Path
 from statistics import mode
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from nemo.utils import get_current_device
+from nemo.utils import get_current_device, get_current_device_type
 import numpy as np
 import torch
 from hydra.utils import instantiate
@@ -65,7 +65,7 @@ from nemo.core.neural_types.elements import ProbsType
 from nemo.utils import logging
 
 try:
-    from torch.cuda.amp import autocast
+    from torch.amp import autocast
 except ImportError:
     from contextlib import contextmanager
 
@@ -1363,7 +1363,7 @@ class NeuralDiarizer(LightningModule):
             sess_emb_vectors, sess_emb_seq, sess_sig_lengths = self.get_range_clus_avg_emb(
                 test_batch, test_data_collection, device=self.msdd_model.device
             )
-            with autocast():
+            with autocast(get_current_device_type()):
                 _preds, scale_weights = self.msdd_model.forward_infer(
                     input_signal=sess_emb_seq,
                     input_signal_length=sess_sig_lengths,
@@ -1373,7 +1373,7 @@ class NeuralDiarizer(LightningModule):
             _preds = _preds.reshape(len(signal_lengths), split_count * self.diar_window_length, -1)
             _preds = _preds[:, : signals.shape[1], :]
         else:
-            with autocast():
+            with autocast(get_current_device_type()):
                 _preds, scale_weights = self.msdd_model.forward_infer(
                     input_signal=signals, input_signal_length=signal_lengths, emb_vectors=emb_vectors, targets=None
                 )

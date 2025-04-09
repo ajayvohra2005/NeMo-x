@@ -24,6 +24,7 @@ import editdistance
 import imageio
 from nemo.utils import get_current_device
 import numpy as np
+from nemo.utils import get_current_device_type
 import soundfile as sf
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
@@ -446,7 +447,7 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
                 encoder_max_sequence_len=encoder_max_sequence_len,
             )
         else:
-            with torch.autocast(device_type="cuda", dtype=self.autocast_dtype):
+            with torch.amp.autocast(device_type="cuda", dtype=self.autocast_dtype):
                 output, out_logits = self.frozen_model.enc_dec_model(
                     enc_input_ids=None,
                     enc_attn_mask=enc_mask,
@@ -670,7 +671,7 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
             if self.trainer.global_step % self.train_check_interval == 0 and not validation_step and self.is_rank_zero:
                 self.frozen_model.enc_dec_model.logging_step = False
                 with torch.no_grad():
-                    with torch.cuda.amp.autocast(enabled=False):
+                    with torch.amp.autocast(get_current_device_type(), enabled=False):
                         if torch.count_nonzero(speech_mask) == 0:
                             text_labels = labels[:, 0, :]  # [B, 8, T] -> [B, T]
                             token_logits = out_logits[0] * 1  # [T, B, V]
@@ -1179,7 +1180,7 @@ class MegatronT5SpeechLMModel(MegatronBaseSpeechLM):
 
         if batch_idx == 0 and self.is_rank_zero:
             self.frozen_model.enc_dec_model.logging_step = False
-            with torch.cuda.amp.autocast(enabled=False):
+            with torch.amp.autocast(get_current_device_type(), enabled=False):
                 if torch.count_nonzero(speech_mask) == 0:
                     text_labels = labels[:, 0, :]  # [B, 8, T] -> [B, T]
                     token_logits = output_logits[0] * 1  # [T, B, V]

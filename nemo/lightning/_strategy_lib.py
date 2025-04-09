@@ -24,6 +24,7 @@ from torch import nn
 
 from nemo.lightning.megatron_init import initialize_model_parallel_for_nemo
 from nemo.utils import logging, get_xla_model
+from nemo.utils import get_current_device_type
 
 NEMO_MEGATRON_MODEL_PARALLEL_APPSTATE_OVERRIDE = "NEMO_MEGATRON_MODEL_PARALLEL_APPSTATE_OVERRIDE"
 
@@ -229,7 +230,7 @@ def megatron_cpu_init_context(config) -> Generator[None, None, None]:
 ModelT = TypeVar("ModelT", bound=nn.Module)
 
 
-class GradScaler(torch.cuda.amp.GradScaler):
+class GradScaler(torch.amp.GradScaler):
     """
     Gradient sclaer for model-parallel inf check. The inf in gradients are checked across tensor-parallel
     ranks in (1) executing optimizer step and (2) gradient scaler update.
@@ -246,6 +247,7 @@ class GradScaler(torch.cuda.amp.GradScaler):
         hysteresis=1,
     ):
         super().__init__(
+            get_current_device_type(),
             init_scale=init_scale,
             growth_factor=growth_factor,
             backoff_factor=backoff_factor,
@@ -386,7 +388,7 @@ class GradScaler(torch.cuda.amp.GradScaler):
 
         # To prepare for next iteration, clear the data collected from optimizers this iteration.
         self._per_optimizer_states = defaultdict(
-            torch.cuda.amp.grad_scaler._refresh_per_optimizer_state  # noqa: SLF001
+            torch.amp.grad_scaler._refresh_per_optimizer_state  # noqa: SLF001
         )
 
     def state_dict(self):

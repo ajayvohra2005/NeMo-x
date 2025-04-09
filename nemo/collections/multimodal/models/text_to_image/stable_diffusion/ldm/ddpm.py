@@ -29,6 +29,7 @@ from lightning.pytorch.core.saving import _load_state as ptl_load_state
 from lightning.pytorch.core.saving import load_hparams_from_tags_csv, load_hparams_from_yaml
 from lightning.pytorch.utilities.migration import pl_legacy_patch
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
+from nemo.utils import get_current_device_type
 from omegaconf import DictConfig, open_dict
 from torch._inductor import config as inductor_config
 from torchvision.utils import make_grid
@@ -1931,7 +1932,7 @@ class MegatronLatentDiffusion(NLPAdapterModelMixin, MegatronBaseModel):
                 batch[self.cfg.cond_stage_key] = batch[self.cfg.cond_stage_key].to(get_current_device())
 
             # SD has more dedicated structure for encoding, so we enable autocasting here as well
-            with torch.cuda.amp.autocast(
+            with torch.amp.autocast(get_current_device_type(),
                 self.autocast_dtype in (torch.half, torch.bfloat16),
                 dtype=self.autocast_dtype,
             ):

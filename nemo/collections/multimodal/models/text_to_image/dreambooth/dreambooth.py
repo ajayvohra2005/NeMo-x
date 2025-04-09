@@ -17,6 +17,7 @@ from typing import Any, Optional
 from nemo.utils import get_current_device
 import torch
 from lightning.pytorch import Trainer
+from nemo.utils import get_current_device_type
 from omegaconf import DictConfig
 from torch._inductor import config as inductor_config
 
@@ -393,7 +394,7 @@ class MegatronDreamBooth(NLPAdapterModelMixin, MegatronBaseModel):
             # noise_map, condition
             prompts, images = batch
             # DB has more dedicated structure for encoding, so we enable autocasting here as well
-            with torch.cuda.amp.autocast(
+            with torch.amp.autocast(get_current_device_type(),
                 self.autocast_dtype in (torch.half, torch.bfloat16),
                 dtype=self.autocast_dtype,
             ):

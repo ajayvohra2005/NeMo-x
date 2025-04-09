@@ -16,11 +16,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Union
 
-from nemo.utils import get_current_device
+from nemo.utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch import Trainer
 from omegaconf.omegaconf import OmegaConf
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 
 from nemo.collections.multimodal.models.text_to_image.imagen.imagen import Imagen, MegatronImagen
 from nemo.collections.multimodal.parts.utils import numpy_to_pil, setup_trainer_and_models_for_inference
@@ -313,7 +313,7 @@ class ImagenPipeline(Callable):
             all_res = []
             for idx, (model, noise_map, cfg, step) in enumerate(zip(models, noise_maps, cfgs, steps)):
                 tic = time.perf_counter()
-                with autocast(enabled=amp_enabled):
+                with autocast(get_current_device_type(), enabled=amp_enabled):
                     generated_images = model.sample_image(
                         noise_map=noise_map,
                         text_encoding=text_encodings,

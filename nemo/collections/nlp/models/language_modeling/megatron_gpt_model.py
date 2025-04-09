@@ -250,7 +250,7 @@ class MegatronGPTExportableModel(torch.nn.Module, Exportable):
                 transformer_engine.pytorch.fp8_autocast(enabled=self.fp8_enabled, fp8_recipe=self.fp8_recipe),
                 torch.no_grad(),
                 torch.inference_mode(),
-                torch.autocast(get_current_device_type(), dtype=self.dtype),
+                torch.amp.autocast(get_current_device_type(), dtype=self.dtype),
                 warnings.catch_warnings(),
             ):
                 warnings.filterwarnings(action='ignore', category=torch.jit.TracerWarning, module=r'.*')
@@ -266,7 +266,7 @@ class MegatronGPTExportableModel(torch.nn.Module, Exportable):
             with (
                 torch.no_grad(),
                 torch.inference_mode(),
-                torch.autocast(get_current_device_type(), dtype=self.dtype),
+                torch.amp.autocast(get_current_device_type(), dtype=self.dtype),
                 warnings.catch_warnings(),
             ):
                 warnings.filterwarnings(action='ignore', category=torch.jit.TracerWarning, module=r'.*')

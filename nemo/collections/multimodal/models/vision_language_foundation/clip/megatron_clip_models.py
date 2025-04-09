@@ -26,6 +26,7 @@ import torch
 import torch.nn.functional as F
 from lightning.pytorch.accelerators import CPUAccelerator
 from lightning.pytorch.trainer.trainer import Trainer
+from nemo.utils import get_current_device_type
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from tqdm import tqdm
@@ -1222,7 +1223,7 @@ class MegatronCLIPModel(MegatronBaseModel):
             for texts in self.imagenet_val["texts"]:
                 texts = texts.to(get_current_device())
                 # TODO (yuya): distributed not working
-                with torch.cuda.amp.autocast(
+                with torch.amp.autocast(get_current_device_type(),
                     enabled=self.autocast_dtype in (torch.half, torch.bfloat16),
                     dtype=self.autocast_dtype,
                 ):
@@ -1259,7 +1260,7 @@ class MegatronCLIPModel(MegatronBaseModel):
                 images = images.to(get_current_device()).to(self.autocast_dtype)
                 target = target.to(get_current_device())
                 # predict
-                with torch.cuda.amp.autocast(
+                with torch.amp.autocast(get_current_device_type(),
                     enabled=self.autocast_dtype in (torch.half, torch.bfloat16),
                     dtype=self.autocast_dtype,
                 ):

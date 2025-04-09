@@ -34,6 +34,7 @@ from nemo.collections.diffusion.models.flux.model import FluxConfig, FluxModelPa
 from nemo.collections.diffusion.models.flux_controlnet.layers import ControlNetConditioningEmbedding
 from nemo.lightning import io
 from nemo.utils import logging
+from nemo.utils import get_current_device_type
 
 
 def zero_module(module):
@@ -487,7 +488,7 @@ class MegatronFluxControlNetModel(MegatronFluxModel):
                 txt, device=latents.device, dtype=latents.dtype
             )
 
-        with torch.cuda.amp.autocast(
+        with torch.amp.autocast(get_current_device_type(),
             self.autocast_dtype in (torch.half, torch.bfloat16),
             dtype=self.autocast_dtype,
         ):

@@ -16,6 +16,8 @@
 
 import torch
 
+from nemo.utils import get_current_device_type
+
 try:
     from apex._autocast_utils import _cast_if_autocast_enabled
 
@@ -52,7 +54,7 @@ def bias_dropout_add_fused_train(x, bias, residual, prob):
     # re-enable torch grad to enable fused optimization.
     with torch.enable_grad():
         args = _cast_if_autocast_enabled(x, bias, residual, prob)
-        with torch.cuda.amp.autocast(enabled=False):
+        with torch.amp.autocast(get_current_device_type(), enabled=False):
             return bias_dropout_add_fused_train_(*args)
 
 
@@ -66,5 +68,5 @@ def bias_dropout_add_fused_inference_(
 
 def bias_dropout_add_fused_inference(x, bias, residual, prob):
     args = _cast_if_autocast_enabled(x, bias, residual, prob)
-    with torch.cuda.amp.autocast(enabled=False):
+    with torch.amp.autocast(get_current_device_type(), enabled=False):
         return bias_dropout_add_fused_inference_(*args)

@@ -83,5 +83,5 @@ class GeLUFunction(torch.autograd.Function):
 
 def fused_bias_gelu(input, bias):
     args = _cast_if_autocast_enabled(input, bias)
-    with torch.cuda.amp.autocast(enabled=False):
+    with torch.amp.autocast(get_current_device_type(), enabled=False):
         return GeLUFunction.apply(*args)

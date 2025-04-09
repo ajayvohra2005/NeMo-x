@@ -13,7 +13,10 @@
 # limitations under the License.
 import torch
 from torch.autograd import Function
-from torch.cuda.amp import custom_bwd, custom_fwd
+from functools import partial
+from nemo.utils import get_current_device_type
+custom_fwd = partial(torch.amp.custom_fwd, device_type=get_current_device_type())
+custom_bwd = partial(torch.amp.custom_bwd, device_type=get_current_device_type())
 
 
 class _trunc_exp(Function):

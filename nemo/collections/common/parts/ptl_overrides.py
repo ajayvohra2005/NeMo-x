@@ -14,10 +14,11 @@
 
 import torch
 from lightning.pytorch.plugins.precision import MixedPrecisionPlugin
+from nemo.utils import get_current_device_type
 
 
 class NeMoMixedPrecisionPlugin(MixedPrecisionPlugin):
     def __init__(self, init_scale: float = 2**32, growth_interval: int = 1000) -> None:
         super().__init__(precision=16)
 
-        self.scaler = torch.cuda.amp.GradScaler(init_scale=init_scale, growth_interval=growth_interval)
+        self.scaler = torch.amp.GradScaler(get_current_device_type(), init_scale=init_scale, growth_interval=growth_interval)

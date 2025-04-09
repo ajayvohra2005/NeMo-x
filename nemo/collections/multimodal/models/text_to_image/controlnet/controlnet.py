@@ -21,6 +21,7 @@ import torch.nn as nn
 from einops import rearrange, repeat
 from lightning.pytorch import Trainer
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
+from nemo.utils import get_current_device_type
 from omegaconf import DictConfig
 from torch._inductor import config as inductor_config
 
@@ -822,7 +823,7 @@ class MegatronControlNet(MegatronBaseModel):
                 batch[self.cfg.cond_stage_key] = batch[self.cfg.cond_stage_key].to(get_current_device())
 
             # SD has more dedicated structure for encoding, so we enable autocasting here as well
-            with torch.cuda.amp.autocast(
+            with torch.amp.autocast(get_current_device_type(),
                 self.autocast_dtype in (torch.half, torch.bfloat16),
                 dtype=self.autocast_dtype,
             ):

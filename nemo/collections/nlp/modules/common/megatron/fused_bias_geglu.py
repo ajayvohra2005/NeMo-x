@@ -16,6 +16,7 @@
 import torch
 
 from nemo.collections.nlp.modules.common.megatron.fused_bias_gelu import bias_gelu, bias_gelu_back
+from nemo.utils import get_current_device_type
 
 try:
     from apex._autocast_utils import _cast_if_autocast_enabled
@@ -53,5 +54,5 @@ class GeGLUFunction(torch.autograd.Function):
 
 def fused_bias_geglu(input, bias, input_2, bias_2):
     args = _cast_if_autocast_enabled(input, bias, input_2, bias_2)
-    with torch.cuda.amp.autocast(enabled=False):
+    with torch.amp.autocast(get_current_device_type(), enabled=False):
         return GeGLUFunction.apply(*args)

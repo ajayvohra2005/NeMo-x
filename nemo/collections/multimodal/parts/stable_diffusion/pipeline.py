@@ -26,6 +26,7 @@ from nemo.collections.multimodal.models.text_to_image.stable_diffusion.samplers.
 from nemo.collections.multimodal.models.text_to_image.stable_diffusion.samplers.plms import PLMSSampler
 from nemo.collections.multimodal.models.text_to_image.stable_diffusion.samplers.sampler_dpm import DPMSolverSampler
 from nemo.collections.multimodal.parts.stable_diffusion.utils import DataParallelWrapper
+from nemo.utils import get_current_device_type
 
 
 def encode_prompt(cond_stage_model, prompts, unconditional_guidance_scale):
@@ -123,7 +124,7 @@ def pipeline(model, cfg, verbose=True, rng=None):
     else:
         raise ValueError('precision must be in [32, 16, "bf16"]')
 
-    with torch.no_grad(), torch.cuda.amp.autocast(
+    with torch.no_grad(), torch.amp.autocast(get_current_device_type(),
         enabled=autocast_dtype in (torch.half, torch.bfloat16), dtype=autocast_dtype,
     ):
 

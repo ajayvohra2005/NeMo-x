@@ -54,7 +54,7 @@ from nemo.collections.llm import fn
 from nemo.lightning import io, teardown
 from nemo.lightning.megatron_parallel import MaskedTokenLossReduction
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
-from nemo.utils import logging
+from nemo.utils import logging, get_current_device_type
 
 
 # pylint: disable=C0116
@@ -533,7 +533,7 @@ class MegatronFluxModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNM
             prompt_embeds, pooled_prompt_embeds, text_ids = self.encode_prompt(
                 txt, device=latents.device, dtype=latents.dtype
             )
-        with torch.cuda.amp.autocast(
+        with torch.amp.autocast(get_current_device_type(),
             self.autocast_dtype in (torch.half, torch.bfloat16),
             dtype=self.autocast_dtype,
         ):

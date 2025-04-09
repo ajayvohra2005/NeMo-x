@@ -22,6 +22,7 @@ import torch
 import torch.distributed
 import torch.nn.functional as F
 from megatron.core.enums import ModelType
+from nemo.utils import get_current_device_type
 
 try:
     from megatron.core.extensions.transformer_engine import TENorm
@@ -430,7 +431,7 @@ class CLIPModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNMixin):
             zeroshot_weights = []
             for texts in self.imagenet_val["texts"]:
                 texts = texts.to(get_current_device())
-                with torch.cuda.amp.autocast(
+                with torch.amp.autocast(get_current_device_type(),
                     enabled=True,
                     dtype=torch.bfloat16,
                 ):
@@ -468,7 +469,7 @@ class CLIPModel(L.LightningModule, io.IOMixin, io.ConnectorMixin, fn.FNMixin):
                 target = target.to(get_current_device())
 
                 # predict
-                with torch.cuda.amp.autocast(
+                with torch.amp.autocast(get_current_device_type(),
                     enabled=True,
                     dtype=torch.bfloat16,
                 ):

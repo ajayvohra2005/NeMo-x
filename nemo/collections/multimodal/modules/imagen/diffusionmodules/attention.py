@@ -20,7 +20,11 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.cuda.amp import custom_bwd, custom_fwd
+
+from functools import partial
+from nemo.utils import get_current_device_type
+custom_fwd = partial(torch.amp.custom_fwd, device_type=get_current_device_type())
+custom_bwd = partial(torch.amp.custom_bwd, device_type=get_current_device_type())
 
 
 def count_flops_attn(model, _x, y):

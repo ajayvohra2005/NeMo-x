@@ -21,7 +21,7 @@ from hydra.utils import instantiate
 from lightning.pytorch import Trainer
 from lightning.pytorch.loggers import WandbLogger
 from omegaconf import DictConfig, OmegaConf
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 from torch.nn import functional as F
 
 from nemo.collections.tts.data.dataset import DistributedBucketSampler
@@ -39,7 +39,7 @@ from nemo.core.classes.common import PretrainedModelInfo, typecheck
 from nemo.core.neural_types.elements import AudioSignal, FloatType, Index, IntType, TokenIndex
 from nemo.core.neural_types.neural_type import NeuralType
 from nemo.core.optim.lr_scheduler import CosineAnnealing
-from nemo.utils import logging, model_utils
+from nemo.utils import logging, model_utils, get_current_device_type
 from nemo.utils.decorators.experimental import experimental
 
 HAVE_WANDB = True
@@ -210,7 +210,7 @@ class VitsModel(TextToWaveform):
 
         spec, spec_lengths = self.audio_to_melspec_processor(audio, audio_len, linear_spec=True)
 
-        with autocast(enabled=True):
+        with autocast(get_current_device_type(), enabled=True):
             audio_pred, l_length, attn, ids_slice, text_mask, z_mask, (z, z_p, m_p, logs_p, m_q, logs_q) = self.net_g(
                 text, text_len, spec, spec_lengths, speakers
             )
@@ -222,7 +222,7 @@ class VitsModel(TextToWaveform):
         audio = slice_segments(audio.unsqueeze(1), ids_slice * self.cfg.n_window_stride, self._cfg.segment_size)
         audio_mel, _ = self.audio_to_melspec_processor(audio.squeeze(1), audio_len, linear_spec=False)
 
-        with autocast(enabled=True):
+        with autocast(get_current_device_type(), enabled=True):
             y_d_hat_r, y_d_hat_g, _, _ = self.net_d(audio, audio_pred.detach())
 
         with autocast(enabled=False):
@@ -240,7 +240,7 @@ class VitsModel(TextToWaveform):
         norm_d = clip_grad_value_(self.net_d.parameters(), None)
         optim_d.step()
 
-        with autocast(enabled=True):
+        with autocast(get_current_device_type(), enabled=True):
             y_d_hat_r, y_d_hat_g, fmap_r, fmap_g = self.net_d(audio, audio_pred)
         # Generator
         with autocast(enabled=False):

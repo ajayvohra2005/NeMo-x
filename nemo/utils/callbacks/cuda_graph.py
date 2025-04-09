@@ -276,8 +276,8 @@ class CUDAGraphCallback(Callback):
         # Hack to avoid CUDA graph issue with AMP, PyTorch Lightning doesn't support
         # changing autocast arguments for now.
         # https://github.com/pytorch/pytorch/blob/v1.13.1/torch/cuda/graphs.py#L234
-        torch.autocast.__orig_init__ = torch.autocast.__init__
-        torch.autocast.__init__ = get_amp_autocast_init(self.state)
+        torch.amp.autocast.__orig_init__ = torch.amp.autocast.__init__
+        torch.amp.autocast.__init__ = get_amp_autocast_init(self.state)
 
         # Before full-backward capture, DDP must be constructed in a side-stream context.
         # We've merged the change that init DDP on side stream to PyTorch Lightning V2,
@@ -290,8 +290,8 @@ class CUDAGraphCallback(Callback):
         if self.state.capture_iteration < 0:
             return
 
-        torch.autocast.__init__ = torch.autocast.__orig_init__
-        del torch.autocast.__orig_init__
+        torch.amp.autocast.__init__ = torch.amp.autocast.__orig_init__
+        del torch.amp.autocast.__orig_init__
 
         DistributedDataParallel.__init__ = DistributedDataParallel.__orig_init__
         del DistributedDataParallel.__orig_init__

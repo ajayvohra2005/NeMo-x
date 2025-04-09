@@ -14,12 +14,14 @@
 import torch
 import torch.nn as nn
 
+from nemo.utils import get_current_device_type
+
 
 class LaplacianSmoothLoss(nn.Module):
     def __init__(self):
         super(LaplacianSmoothLoss, self).__init__()
 
-    @torch.cuda.amp.autocast(enabled=False)
+    @torch.amp.autocast(get_current_device_type(), enabled=False)
     def forward(self, verts, faces):
         with torch.no_grad():
             L = self.laplacian_uniform(verts, faces.long())

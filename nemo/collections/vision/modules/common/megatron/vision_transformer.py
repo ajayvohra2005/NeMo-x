@@ -384,7 +384,7 @@ class ParallelVisionTransformerLayer(ParallelVisionTransformerLayer_):
             kwargs.pop(key)
         if self.dtype == torch.float32:
             return super().forward(**kwargs)
-        with torch.autocast(device_type=get_current_device_type(), dtype=self.dtype):
+        with torch.amp.autocast(device_type=get_current_device_type(), dtype=self.dtype):
             return super().forward(**kwargs)
 
 

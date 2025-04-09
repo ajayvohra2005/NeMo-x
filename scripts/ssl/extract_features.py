@@ -245,7 +245,7 @@ def extract_features(args):
     results = []
     amp_dtype = torch.float16 if args.amp_dtype == "float16" else torch.bfloat16
     logging.info(f"Extracting features using AMP: {args.use_amp}, dtype: {amp_dtype}")
-    with torch.autocast(get_current_device(), dtype=amp_dtype, enabled=args.use_amp):
+    with torch.amp.autocast(get_current_device(), dtype=amp_dtype, enabled=args.use_amp):
         with torch.inference_mode():
             for batch in tqdm(dataloader, desc="Extracting features"):
                 batch = move_data_to_device(batch, device)

@@ -19,6 +19,7 @@ from nemo.utils import get_current_device
 import numpy as np
 import torch
 from lightning.pytorch import Trainer
+from nemo.utils import get_current_device_type
 from omegaconf import DictConfig
 from transformers.models.bert.tokenization_bert import BasicTokenizer
 
@@ -164,7 +165,7 @@ class BERTQAModel(BaseQAModel):
 
     @typecheck()
     def forward(self, input_ids, attention_mask, token_type_ids):
-        with torch.cuda.amp.autocast():
+        with torch.amp.autocast(get_current_device_type(),):
             hidden_states = self.bert_model(
                 input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask
             )

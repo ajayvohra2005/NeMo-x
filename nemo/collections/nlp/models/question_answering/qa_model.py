@@ -15,11 +15,11 @@
 import json
 from typing import Optional
 
-from nemo.utils import get_current_device
+from nemo.utils import get_current_device, get_current_device_type
 import torch
-from lightning.pytorch import Trainer
+from lightning.pytorch import Trainers
 from omegaconf import DictConfig, OmegaConf
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 
 from nemo.collections.common.losses import SpanningLoss
 from nemo.collections.nlp.data import SquadDataset
@@ -62,7 +62,7 @@ class QAModel(NLPModel):
 
     @typecheck()
     def forward(self, input_ids, attention_mask, token_type_ids):
-        with autocast():
+        with autocast(get_current_device_type()):
             hidden_states = self.bert_model(
                 input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask
             )

@@ -72,7 +72,7 @@ def get_buffered_pred_feat_rnnt(
                     refs.append(row['text'])
 
     with torch.inference_mode():
-        with torch.autocast(get_accelerator_device_type(accelerator)):
+        with torch.amp.autocast(get_accelerator_device_type(accelerator)):
             batch = []
             asr.sample_offset = 0
             for idx in tqdm(range(len(filepaths)), desc='Sample:', total=len(filepaths)):

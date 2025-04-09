@@ -64,7 +64,7 @@ class StableDiffusion(Txt2ImgGuidanceBase):
     def get_text_embeds(self, prompt):
         return self.text_encoder(prompt)
 
-    @torch.autocast(device_type=get_current_device_type())
+    @torch.amp.autocast(device_type=get_current_device_type())
     def train_step(self, text_embeddings, pred_rgb, guidance_scale=100, as_latent=False):
 
         if as_latent:

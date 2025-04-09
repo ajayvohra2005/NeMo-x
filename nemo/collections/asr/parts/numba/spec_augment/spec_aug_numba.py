@@ -149,7 +149,10 @@ def launch_spec_augment_kernel(
     """
     # Setup CUDA stream
     sh = x.shape
-    stream = cuda.external_stream(torch.cuda.current_stream(x.device).cuda_stream)
+    if hasattr(cuda, 'external_stream'):
+        stream = cuda.external_stream(torch.cuda.current_stream(x.device).cuda_stream)
+    else:
+        stream = cuda.default_stream()
 
     if time_masks > 0 or freq_masks > 0:
         # Parallelize over freq and time axis, parallel threads over batch

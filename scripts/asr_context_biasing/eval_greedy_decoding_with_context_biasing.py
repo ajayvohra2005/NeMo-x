@@ -359,7 +359,7 @@ def main(cfg: EvalContextBiasingConfig):
             audio_file_paths.append(str(audio_file.absolute()))
 
     # manual calculation of encoder_embeddings
-    with torch.autocast(asr_model.device.type, enabled=cfg.use_amp):
+    with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
         with torch.no_grad():
             asr_model.eval()
             asr_model.encoder.freeze()

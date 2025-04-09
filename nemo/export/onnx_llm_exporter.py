@@ -202,7 +202,7 @@ class OnnxLLMExporter(ITritonDeployable):
 
         Path(self.onnx_model_dir).mkdir(parents=True, exist_ok=True)
 
-        with torch.autocast(device_type=get_model_device_type(self.model), dtype=export_dtype):
+        with torch.amp.autocast(device_type=get_model_device_type(self.model), dtype=export_dtype):
             torch.onnx.export(
                 model=self.model,
                 args=(example_inputs,),

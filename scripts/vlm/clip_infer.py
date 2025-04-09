@@ -37,6 +37,7 @@ from transformers import CLIPModel as HFCLIPModel
 
 import nemo.lightning as nl
 from nemo.collections.vlm import CLIPModel
+from nemo.utils import get_current_device_type
 
 
 def load_image(image_path: str) -> Image.Image:
@@ -97,7 +98,7 @@ def main(args) -> None:
     vision_model = model.module.module.vision_model.eval()
     text_model = model.module.module.text_model.eval()
 
-    with torch.no_grad(), torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
+    with torch.no_grad(), torch.amp.autocast(get_current_device_type(), enabled=True, dtype=torch.bfloat16):
         # %% Zero-shot classification
         classes = args.classes
 

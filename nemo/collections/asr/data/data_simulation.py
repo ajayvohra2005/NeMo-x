@@ -1225,10 +1225,7 @@ class MultiSpeakerSimulator(object):
             speaker_wav_align_map = get_speaker_samples(speaker_ids=speaker_ids, speaker_samples=self._speaker_samples)
             noise_samples = self.sampler.sample_noise_manifest(noise_manifest=source_noise_manifest)
 
-            if torch.cuda.is_available():
-                device = torch.device(f"cuda:{sess_idx % torch.cuda.device_count()}")
-            else:
-                device = self._device
+            device = self._device
             queue.append((sess_idx, basepath, filename, speaker_ids, speaker_wav_align_map, noise_samples, device))
 
         # for multiprocessing speed, we avoid loading potentially huge manifest list and speaker sample files into each process.

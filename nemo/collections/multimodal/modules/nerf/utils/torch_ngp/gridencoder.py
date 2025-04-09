@@ -18,7 +18,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Function
-from torch.cuda.amp import custom_bwd, custom_fwd
+from functools import partial
+from nemo.utils import get_current_device_type
+custom_fwd = partial(torch.amp.custom_fwd, device_type=get_current_device_type())
+custom_bwd = partial(torch.amp.custom_bwd, device_type=get_current_device_type())
+
+from nemo.utils import get_current_device_type
 
 _gridtype_to_id = {
     'hash': 0,
@@ -248,7 +253,7 @@ class GridEncoder(nn.Module):
         return outputs
 
     # always run in float precision!
-    @torch.cuda.amp.autocast(enabled=False)
+    @torch.amp.autocast(get_current_device_type(), enabled=False)
     def grad_total_variation(self, weight=1e-7, inputs=None, bound=1, B=1000000):
         # inputs: [..., input_dim], float in [-b, b], location to calculate TV loss.
 
@@ -285,7 +290,7 @@ class GridEncoder(nn.Module):
             self.align_corners,
         )
 
-    @torch.cuda.amp.autocast(enabled=False)
+    @torch.amp.autocast(get_current_device_type(), enabled=False)
     def grad_weight_decay(self, weight=0.1):
         # level-wise meaned weight decay (ref: zip-nerf)
 

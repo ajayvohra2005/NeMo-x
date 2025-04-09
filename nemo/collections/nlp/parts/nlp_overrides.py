@@ -41,6 +41,7 @@ from lightning.pytorch.plugins.precision.fsdp import FSDPPrecision
 from lightning.pytorch.strategies import DDPStrategy, FSDPStrategy
 from lightning.pytorch.trainer.states import TrainerFn
 from lightning.pytorch.trainer.trainer import Trainer
+from nemo.utils.device_utils import get_current_device_type
 from omegaconf import OmegaConf
 from torch._C._distributed_c10d import ReduceOp
 from torch.distributed.algorithms.ddp_comm_hooks.debugging_hooks import noop_hook
@@ -59,11 +60,8 @@ from torch.nn.parallel import DistributedDataParallel
 
 from nemo.utils.get_rank import is_global_rank_zero
 
-try:
-    from torch.cuda.amp.grad_scaler import _refresh_per_optimizer_state
-except ImportError:
-    # since PyTorch 2.3 the path has changed
-    from torch.amp.grad_scaler import _refresh_per_optimizer_state
+
+from torch.amp.grad_scaler import _refresh_per_optimizer_state
 
 from nemo.collections.nlp.modules.common.megatron.module import Float16Module
 from nemo.collections.nlp.modules.common.megatron.transformer import AutocastTransformerLayer, ParallelTransformerLayer
@@ -1452,7 +1450,7 @@ class PipelineMixedPrecisionPlugin(MixedPrecisionPlugin):
         self,
         precision: Literal["16-mixed", "bf16-mixed", '16', 'bf16', 16],
         device: str,
-        scaler: Optional[torch.cuda.amp.GradScaler] = None,
+        scaler: Optional[torch.amp.GradScaler] = None,
     ) -> None:
         # MixedPrecisionPlugin class in PTL >= 2.0 takes only "16-mixed" or "bf16-mixed" for precision arg
         if precision in ['16-mixed', '16', 16]:
@@ -1512,7 +1510,7 @@ class FSDPMixedPrecisionPlugin(FSDPPrecision):
         yield
 
 
-class GradScaler(torch.cuda.amp.GradScaler):
+class GradScaler(torch.amp.GradScaler):
     """
     Gradient sclaer for model-parallel inf check. The inf in gradients are checked across tensor-parallel
     ranks in (1) executing optimizer step and (2) gradient scaler update.
@@ -1529,6 +1527,7 @@ class GradScaler(torch.cuda.amp.GradScaler):
         hysteresis=1,
     ):
         super().__init__(
+            get_current_device_type(),
             init_scale=init_scale,
             growth_factor=growth_factor,
             backoff_factor=backoff_factor,
@@ -1736,12 +1735,12 @@ class MegatronHalfPrecisionPlugin(MixedPrecisionPlugin):
 
     Args:
         precision: Whether to use ``torch.float16`` (``16``) or ``torch.bfloat16`` (``'bf16'``).
-        device: The device for ``torch.autocast``.
-        scaler: An optional :class:`torch.cuda.amp.GradScaler` to use.
+        device: The device for ``torch.amp.autocast``.
+        scaler: An optional :class:`torch.amp.GradScaler` to use.
     """
 
     def __init__(
-        self, precision: Union[str, int], device: str, scaler: Optional[torch.cuda.amp.GradScaler] = None
+        self, precision: Union[str, int], device: str, scaler: Optional[torch.amp.GradScaler] = None
     ) -> None:
         super().__init__(precision, device, scaler)
         dtype = None

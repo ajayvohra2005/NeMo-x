@@ -15,6 +15,7 @@ import os
 import tempfile
 
 from nemo.utils import get_current_device
+from nemo.utils import get_current_device_type
 import onnx
 import pytest
 import torch.cuda
@@ -100,7 +101,7 @@ class TestExportable:
     @pytest.mark.unit
     def test_ConformerModel_export_to_onnx(self, conformer_model):
         model = conformer_model.to(device=get_current_device())
-        with tempfile.TemporaryDirectory() as tmpdir, torch.cuda.amp.autocast():
+        with tempfile.TemporaryDirectory() as tmpdir, torch.amp.autocast(get_current_device_type(),):
             filename = os.path.join(tmpdir, 'conf.onnx')
             device = next(model.parameters()).device
             input_example = torch.randn(4, model.encoder._feat_in, 777, device=device)
@@ -113,7 +114,7 @@ class TestExportable:
     @pytest.mark.unit
     def test_SqueezeformerModel_export_to_onnx(self, squeezeformer_model):
         model = squeezeformer_model.to(device=get_current_device())
-        with tempfile.TemporaryDirectory() as tmpdir, torch.cuda.amp.autocast():
+        with tempfile.TemporaryDirectory() as tmpdir, torch.amp.autocast(get_current_device_type(),):
             filename = os.path.join(tmpdir, 'squeeze.ts')
             device = next(model.parameters()).device
             input_example = torch.randn(4, model.encoder._feat_in, 777, device=device)
@@ -126,7 +127,7 @@ class TestExportable:
         model = citrinet_model.to(device=get_current_device())
         asr_module_utils.change_conv_asr_se_context_window(model, context_window=24, update_config=False)
 
-        with tempfile.TemporaryDirectory() as tmpdir, torch.cuda.amp.autocast():
+        with tempfile.TemporaryDirectory() as tmpdir, torch.amp.autocast(get_current_device_type(),):
             filename = os.path.join(tmpdir, 'citri_se.onnx')
             model.export(
                 output=filename, check_trace=True,

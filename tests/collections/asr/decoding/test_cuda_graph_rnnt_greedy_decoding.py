@@ -18,6 +18,7 @@ import jiwer
 from nemo.utils import get_current_device
 import pytest
 import torch
+from nemo.utils import get_current_device_type
 from omegaconf import open_dict
 
 from nemo.collections.asr.models import ASRModel
@@ -80,7 +81,7 @@ def test_cuda_graph_rnnt_greedy_decoder(model_name, batch_size, enable_bfloat16,
     nemo_model.change_decoding_strategy(decoding_config)
     audio_filepaths = glob.glob("tests/.data/asr/test/an4/wav/*.wav")
 
-    with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=enable_bfloat16):
+    with torch.amp.autocast(get_current_device_type(),dtype=torch.bfloat16, enabled=enable_bfloat16):
         actual_hypotheses = nemo_model.transcribe(audio_filepaths, batch_size=batch_size, num_workers=None)
 
     actual_transcripts = [hyp.text for hyp in actual_hypotheses]
@@ -90,7 +91,7 @@ def test_cuda_graph_rnnt_greedy_decoder(model_name, batch_size, enable_bfloat16,
 
     nemo_model.change_decoding_strategy(decoding_config)
 
-    with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=enable_bfloat16):
+    with torch.amp.autocast(get_current_device_type(),dtype=torch.bfloat16, enabled=enable_bfloat16):
         fast_hypotheses = nemo_model.transcribe(audio_filepaths, batch_size=batch_size, num_workers=None)
 
     fast_transcripts = [hyp.text for hyp in fast_hypotheses]
@@ -144,7 +145,7 @@ def test_loop_labels_cuda_graph_rnnt_greedy_decoder_forced_mode(
     nemo_model.change_decoding_strategy(decoding_config)
     audio_filepaths = glob.glob("tests/.data/asr/test/an4/wav/*.wav")
 
-    with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=enable_bfloat16):
+    with torch.amp.autocast(get_current_device_type(),dtype=torch.bfloat16, enabled=enable_bfloat16):
         actual_hypotheses = nemo_model.transcribe(audio_filepaths, batch_size=batch_size, num_workers=None)
     actual_transcripts = [hyp.text for hyp in actual_hypotheses]
 
@@ -153,7 +154,7 @@ def test_loop_labels_cuda_graph_rnnt_greedy_decoder_forced_mode(
     nemo_model.change_decoding_strategy(decoding_config)
     nemo_model.decoding.decoding._decoding_computer.force_cuda_graphs_mode(mode=force_mode)
 
-    with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=enable_bfloat16):
+    with torch.amp.autocast(get_current_device_type(),dtype=torch.bfloat16, enabled=enable_bfloat16):
         fast_hypotheses = nemo_model.transcribe(audio_filepaths, batch_size=batch_size, num_workers=None)
     fast_transcripts = [hyp.text for hyp in fast_hypotheses]
 
@@ -195,7 +196,7 @@ def test_change_devices(loop_labels: bool, stt_en_fastconformer_transducer_xlarg
     # true_device
     nemo_model.to(first_device)
     audio_filepaths = glob.glob("tests/.data/asr/test/an4/wav/*.wav")
-    with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=True):
+    with torch.amp.autocast(get_current_device_type(),dtype=torch.bfloat16, enabled=True):
         second_device_hypotheses = nemo_model.transcribe(audio_filepaths, batch_size=batch_size, num_workers=None)
     second_device_transcripts = [hyp.text for hyp in second_device_hypotheses]
 
@@ -206,7 +207,7 @@ def test_change_devices(loop_labels: bool, stt_en_fastconformer_transducer_xlarg
     # has not run at all), so we want to exercise both cases.
     nemo_model.to(second_device)
 
-    with torch.cuda.amp.autocast(dtype=torch.bfloat16, enabled=True):
+    with torch.amp.autocast(get_current_device_type(),dtype=torch.bfloat16, enabled=True):
         first_device_hypotheses = nemo_model.transcribe(audio_filepaths, batch_size=batch_size, num_workers=None)
     first_device_transcripts = [hyp.text for hyp in first_device_hypotheses]
     # Sanity check: The device we run on should not change execution

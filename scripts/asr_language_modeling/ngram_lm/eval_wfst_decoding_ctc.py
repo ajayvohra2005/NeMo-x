@@ -300,7 +300,7 @@ def main(cfg: EvalWFSTNGramConfig):
             )
     else:
 
-        with torch.autocast(asr_model.device.type, enabled=cfg.use_amp):
+        with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
             with torch.no_grad():
                 if isinstance(asr_model, EncDecHybridRNNTCTCModel):
                     asr_model.cur_decoder = 'ctc'

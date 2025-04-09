@@ -458,7 +458,7 @@ def oomptimizer(
 
     # Iterate buckets from the largest to the smallest sequences. This usually ends up creating
     # a tiny bit smaller batches, likely due to worse memory fragmentation.
-    with torch.autocast(get_current_device_type(), getattr(torch, dtype)):
+    with torch.amp.autocast(get_current_device_type(), getattr(torch, dtype)):
         for bucket, (seq_len_in, seq_len_out) in reversed(list(zip(buckets, max_seq_lens))):
             click.echo(f"The current sequence lengths are: input={seq_len_in} output={seq_len_out}.")
             gen.reset()

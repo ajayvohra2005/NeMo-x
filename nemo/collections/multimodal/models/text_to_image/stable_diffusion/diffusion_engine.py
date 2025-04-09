@@ -156,20 +156,20 @@ class DiffusionEngine(nn.Module, Serialization):
     @torch.no_grad()
     def decode_first_stage(self, z):
         z = 1.0 / self.scale_factor * z
-        with torch.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
+        with torch.amp.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
             out = self.first_stage_model.decode(z)
         return out
 
     # same as above but differentiable
     def differentiable_decode_first_stage(self, z):
         z = 1.0 / self.scale_factor * z
-        with torch.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
+        with torch.amp.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
             out = self.first_stage_model.decode(z)
         return out
 
     @torch.no_grad()
     def encode_first_stage(self, x):
-        with torch.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
+        with torch.amp.autocast(device_type=get_current_device_type(), enabled=not self.disable_first_stage_autocast):
             z = self.first_stage_model.encode(x)
         z = self.scale_factor * z
         return z
@@ -546,7 +546,7 @@ class MegatronDiffusionEngine(NLPAdapterModelMixin, MegatronBaseModel):
             Global batch is a list of micro batches.
             """
             # SD has more dedicated structure for encoding, so we enable autocasting here as well
-            with torch.cuda.amp.autocast(
+            with torch.amp.autocast(get_current_device_type(),
                 self.autocast_dtype in (torch.half, torch.bfloat16),
                 dtype=self.autocast_dtype,
             ):

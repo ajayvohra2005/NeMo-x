@@ -19,6 +19,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from nemo.utils import get_current_device_type
+
 
 def get_view_direction(thetas: torch.Tensor, phis: torch.Tensor, overhead: float, front: float) -> torch.Tensor:
     """
@@ -115,7 +117,7 @@ def construct_poses(
     return poses
 
 
-@torch.cuda.amp.autocast(enabled=False)
+@torch.amp.autocast(get_current_device_type(), enabled=False)
 def get_rays(
     poses: torch.Tensor,
     intrinsics: torch.Tensor,

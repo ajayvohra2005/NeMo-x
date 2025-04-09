@@ -15,11 +15,11 @@
 import collections
 from typing import List, Optional
 
-from nemo.utils import get_current_device
+from nemo.utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch import Trainer
 from omegaconf import DictConfig, OmegaConf, open_dict
-from torch.cuda.amp import autocast
+from torch.amp import autocast
 from transformers import AutoModelForSeq2SeqLM
 
 from nemo.collections.nlp.data.question_answering.data_processor.qa_processing import QAProcessor
@@ -143,7 +143,7 @@ class S2SQAModel(BaseQAModel):
     def forward(self, input_ids, input_attn_mask, labels):
         loss, per_sample_perplexity = None, None
         if self.cfg.library == "huggingface":
-            with autocast(enabled=False):
+            with autocast(get_current_device_type(), enabled=False):
                 output = self.language_model(input_ids=input_ids, attention_mask=input_attn_mask, labels=labels)
             loss = output['loss']
             lm_logits = output['logits']
