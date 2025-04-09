@@ -1740,13 +1740,13 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
             self.model = self.trainer.strategy._setup_model(self.model)
             # Move the CPU-initialized model (with `use_cpu_initialization=True`) to GPU, which is to avoid
             # out-of-memory carash before sharding. In case of GPU-initialized model, this is no-op.
-            self.model = self.model.cuda(get_current_device())
+            self.model = self.model.to(get_current_device())
 
             # Shard perception module
             frozen_submodule_names, frozen_submodules = find_frozen_submodules(self.perception)
             self.trainer.strategy.kwargs['ignored_states'].extend(frozen_submodules)
             self.perception = self.trainer.strategy._setup_model(self.perception)
-            self.perception = self.perception.cuda(get_current_device())
+            self.perception = self.perception.to(get_current_device())
 
     def oomptimizer_schema(self, schema: str = "audio") -> dict:
         """
@@ -1891,4 +1891,4 @@ class CrossAttendModularAudioGPTModel(ModularAudioGPTModel):
 
         if self.use_fsdp:
             self.perception_cross_attn = self.trainer.strategy._setup_model(self.perception_cross_attn)
-            self.perception_cross_attn = self.perception_cross_attn.cuda(get_current_device())
+            self.perception_cross_attn = self.perception_cross_attn.to(get_current_device())

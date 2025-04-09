@@ -137,7 +137,7 @@ class ControlLDM(LatentDiffusion):
             control = control[:bs]
         control = control.to(get_current_device())
         if self.channels_last:
-            control = control.permute(0, 3, 1, 2).to(non_blocking=True)
+            control = control.permute(0, 3, 1, 2).to(device=get_current_device(), non_blocking=True)
         else:
             control = einops.rearrange(control, 'b h w c -> b c h w')
             control = control.to(memory_format=torch.contiguous_format).float()

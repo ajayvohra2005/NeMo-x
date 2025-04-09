@@ -89,7 +89,7 @@ class MegatronRetrievalModel(MegatronBaseModel, TextGeneration):
 
             if not self.with_distributed_adam:
                 # Pre-allocate the model on GPU to have master parameters allocated on the same device with matching data type
-                self.model.cuda(get_current_device())
+                self.model.to(get_current_device())
 
             # Model wrapper to convert both model and inputs to half precision
             self.model = Float16Module(

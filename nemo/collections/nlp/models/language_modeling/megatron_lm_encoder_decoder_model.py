@@ -145,9 +145,9 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                 # allocated on the same device with matching data type
                 if isinstance(self.enc_dec_model, list):
                     for module in self.enc_dec_model:
-                        module.cuda(get_current_device())
+                        module.to(get_current_device())
                 else:
-                    self.enc_dec_model.cuda(get_current_device())
+                    self.enc_dec_model.to(get_current_device())
 
             # Model wrapper to convert both model and inputs to half precision
             self._wrap_model_for_O2()

@@ -734,9 +734,9 @@ class MegatronCLIPModel(MegatronBaseModel):
                 # Pre-allocate the model on GPU to have master parameters allocated on the same device with matching data type
                 if isinstance(self.model, list):
                     for module in self.model:
-                        module.cuda(get_current_device())
+                        module.to(get_current_device())
                 else:
-                    self.model.cuda(get_current_device())
+                    self.model.to(get_current_device())
 
             self._wrap_model_for_O2()
 

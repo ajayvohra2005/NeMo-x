@@ -1351,7 +1351,7 @@ class MegatronBaseModel(NLPModel):
             self.model = self.trainer.strategy._setup_model(self.model)
             # Move the CPU-initialized model (with `use_cpu_initialization=True`) to GPU, which is to avoid
             # out-of-memory carash before sharding. In case of GPU-initialized model, this is no-op.
-            self.model = self.model.cuda(get_current_device())
+            self.model = self.model.to(get_current_device())
 
     def megatron_timer_start(self, name, log_level):
         if self.megatron_timers:

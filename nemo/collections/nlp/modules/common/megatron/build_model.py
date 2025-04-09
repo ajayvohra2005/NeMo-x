@@ -146,7 +146,7 @@ def build_model(
     # GPU allocation.
     if not on_cpu:
         for model_module in model:
-            model_module.cuda(get_current_device())
+            model_module.to(get_current_device())
 
     if wrap_with_ddp:
         i = get_current_device()

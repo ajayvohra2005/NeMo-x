@@ -465,10 +465,10 @@ class DDPM(torch.nn.Module):
         if len(x.shape) == 3:
             x = x[..., None]
         if self.channels_last:
-            x = x.permute(0, 3, 1, 2).to(non_blocking=True)
+            x = x.permute(0, 3, 1, 2).to(device=get_current_device(), non_blocking=True)
         else:
             x = rearrange(x, "b h w c -> b c h w")
-            x = x.to(memory_format=torch.contiguous_format, non_blocking=True)
+            x = x.to(device=get_current_device(), memory_format=torch.contiguous_format, non_blocking=True)
         return x
 
     def shared_step(self, batch):

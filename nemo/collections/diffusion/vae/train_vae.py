@@ -15,6 +15,7 @@
 
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
+from nemo.utils import get_current_device
 import nemo_run as run
 import torch
 import torch.distributed
@@ -189,7 +190,7 @@ class VAEModel(GPTModel):
             A dictionary with 'pixel_values' ready for the model.
         """
         batch = next(dataloader_iter)[0]
-        return {'pixel_values': batch.image.to(device='cuda', dtype=torch.bfloat16, non_blocking=True)}
+        return {'pixel_values': batch.image.to(device=get_current_device(), dtype=torch.bfloat16, non_blocking=True)}
 
     def forward(self, *args, **kwargs):
         """
