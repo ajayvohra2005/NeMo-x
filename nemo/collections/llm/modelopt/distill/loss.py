@@ -105,7 +105,9 @@ class LogitsKLLoss(BaseLoss):
             denom_teacher = torch.sum(torch.exp(output_teacher), dim=-1)
             # We can't use standard reduction function here since the computation
             # that follows it isn't identical across TP ranks.
-            denom_teacher = all_reduce_autograd(denom_teacher, group=parallel_state.get_tensor_model_parallel_group())
+            group = parallel_state.get_tensor_model_parallel_group() \
+                if not xm else parallel_state.get_tensor_model_parallel_groups()
+            denom_teacher = all_reduce_autograd(denom_teacher, group=group)
 
             # Maximum value along vocab dimension across all GPUs.
             student_logits_max, _ = torch.max(output_student, dim=-1)
@@ -122,7 +124,7 @@ class LogitsKLLoss(BaseLoss):
             output_student = output_student - student_logits_max.unsqueeze(dim=-1).detach()
 
             denom_student = torch.sum(torch.exp(output_student), dim=-1)
-            denom_student = all_reduce_autograd(denom_student, group=parallel_state.get_tensor_model_parallel_group())
+            denom_student = all_reduce_autograd(denom_student, group=group)
 
             slen, bsz, sharded_vocab_size = output_student.shape
             student_log_prob = output_student - torch.log(denom_student).view(slen, bsz, 1).expand(
@@ -174,7 +176,10 @@ class _AllReduce(torch.autograd.Function):
         # pylint: disable=C0116
         ctx.group, ctx.op = group, op
         tensor = tensor.clone()
-        torch.distributed.all_reduce(tensor, op=op, group=group)
+        if xm:
+            xm.all_reduce(op, [tensor], groups=group, pin_layout=False)
+        else:
+            torch.distributed.all_reduce(tensor, op=op, group=group)
         return tensor
 
     @staticmethod
@@ -183,7 +188,9 @@ class _AllReduce(torch.autograd.Function):
         return (None, None, _AllReduce.apply(ctx.op, ctx.group, grad_output))
 
 
-def all_reduce_autograd(tensor, op=torch.distributed.ReduceOp.SUM, group=torch.distributed.group.WORLD):
+def all_reduce_autograd(tensor, 
+                        op=torch.distributed.ReduceOp.SUM if not xm else xm.REDUCE_SUM, 
+                        group=torch.distributed.group.WORLD if not xm else None):
     """Custom all-reduce function.
 
     Needed instead of other all-reduce functions available when the computation following

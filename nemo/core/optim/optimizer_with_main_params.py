@@ -452,7 +452,7 @@ class MainParamsOptimizerWrapper(torch.optim.Optimizer):
         # while async grad allreduce is enabled, bprop will keep moving forward without waiting for
         # the finish of async grad AR works. Hence, to guarantee the correctness of grads reduction,
         # we cannot start weight update until all async grad AR works are done.
-        if self._async_grad_allreduce:
+        if self._async_grad_allreduce and torch.cuda.is_available():
             torch.cuda.synchronize()
 
         closure = kwargs.pop('closure', None)

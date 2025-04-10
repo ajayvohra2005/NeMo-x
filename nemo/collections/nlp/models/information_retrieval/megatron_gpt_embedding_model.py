@@ -50,12 +50,17 @@ def listify(tensor):
 
 def _gather_global_inbatch_representations(local_eos_tensor):
     local_eos_tensor = local_eos_tensor.contiguous()
-    global_eos_tensors = [
-        torch.zeros_like(local_eos_tensor) for _ in range(parallel_state.get_data_parallel_world_size())
-    ]
-    torch.distributed.all_gather(global_eos_tensors, local_eos_tensor, group=parallel_state.get_data_parallel_group())
-    global_eos_tensors[parallel_state.get_data_parallel_rank()] = local_eos_tensor
-    global_eos_tensors = torch.cat(global_eos_tensors, dim=0)
+    if xm:
+        global_eos_tensors = xm.all_gather(local_eos_tensor, dim=0, 
+                                           groups=parallel_state.get_data_parallel_groups(), 
+                                           pin_layout=False)
+    else:
+        global_eos_tensors = [
+            torch.zeros_like(local_eos_tensor) for _ in range(parallel_state.get_data_parallel_world_size())
+        ]
+        torch.distributed.all_gather(global_eos_tensors, local_eos_tensor, group=parallel_state.get_data_parallel_group())
+        global_eos_tensors[parallel_state.get_data_parallel_rank()] = local_eos_tensor
+        global_eos_tensors = torch.cat(global_eos_tensors, dim=0)
     return global_eos_tensors
 
 

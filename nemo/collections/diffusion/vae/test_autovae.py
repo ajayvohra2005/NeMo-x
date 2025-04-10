@@ -14,6 +14,7 @@
 
 import unittest
 
+import pytest
 import torch
 from autovae import VAEGenerator
 
@@ -148,6 +149,7 @@ class TestVAEGenerator(unittest.TestCase):
         actual_order_mse = [item["param_diff"] for item in data]
         self.assertEqual(actual_order_mse, expected_order_mse)
 
+    @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is required")
     def test_search_for_target_vae_invalid(self):
         """Test that search_for_target_vae raises an error when no budget is specified."""
         with self.assertRaises(ValueError):

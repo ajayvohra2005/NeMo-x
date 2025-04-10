@@ -28,7 +28,7 @@ try:
         TERowParallelLinear,
     )
 except ImportError:
-    from nemo.utils import logging
+    from nemo.utils import logging, get_xla_model
 
     # These Defaults are needed to make sure the code compiles
     TEColumnParallelLinear = None
@@ -44,6 +44,7 @@ except ImportError:
 
 from megatron.core.parallel_state import (
     get_tensor_model_parallel_group,
+    get_tensor_model_parallel_groups,
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_world_size,
 )
@@ -60,6 +61,7 @@ from megatron.core.transformer.transformer_layer import TransformerLayer, Transf
 from nemo.collections.vlm.vision.base import CLIPViTConfig
 from nemo.lightning import io, teardown
 
+xm = get_xla_model()
 
 class InternViTRMSNorm(torch.nn.Module):
     """Customized Version of RMSNorm"""
@@ -147,11 +149,14 @@ class InternViTRMSNorm(torch.nn.Module):
         else:
             var = input_.sum(-1, keepdim=True) * 0.0  # Zero-out the dummy heads.
 
-        tensor_list = [torch.empty_like(var) for _ in range(world_size)]
-        tensor_list[rank] = var
-        torch.distributed.all_gather(tensor_list, var, group=get_tensor_model_parallel_group())
+        if xm:
+            output = xm.all_gather(var, dim=last_dim, groups=get_tensor_model_parallel_groups(), pin_layout=False)
+        else:
+            tensor_list = [torch.empty_like(var) for _ in range(world_size)]
+            tensor_list[rank] = var
+            torch.distributed.all_gather(tensor_list, var, group=get_tensor_model_parallel_group())
 
-        output = torch.cat(tensor_list, dim=last_dim).contiguous()
+            output = torch.cat(tensor_list, dim=last_dim).contiguous()
 
         return output.sum(-1, keepdim=True)
 

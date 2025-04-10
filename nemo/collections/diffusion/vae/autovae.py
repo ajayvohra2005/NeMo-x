@@ -217,6 +217,8 @@ class VAEGenerator:
         Returns:
             AutoencoderKL: The chosen VAE configuration that best matches the provided budgets.
         """
+        assert torch.cuda.is_availble(), "CUDA is required"
+        
         if parameters_budget <= 0 and cuda_max_mem <= 0:
             raise ValueError("Please specify a valid parameter budget or cuda max memory budget")
 
