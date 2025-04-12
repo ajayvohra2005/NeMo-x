@@ -537,7 +537,7 @@ class MegatronBertModel(MegatronBaseModel):
                 if xm:
                     xm.all_reduce(xm.REDUCE_SUM, [grad], 
                                     groups=parallel_state.get_embedding_groups(), 
-                                        pin_layout=False)
+                                    pin_layout=False)
                 else:
                     torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
 
@@ -900,7 +900,7 @@ class MegatronBertModel(MegatronBaseModel):
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
                             groups=parallel_state.get_tensor_model_parallel_groups(), 
-                                pin_layout=False)
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):

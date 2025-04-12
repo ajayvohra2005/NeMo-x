@@ -332,7 +332,10 @@ def average_losses_across_data_parallel_group(losses):
 
     averaged_losses = torch.cat([loss.clone().detach().view(1) for loss in losses])
     if xm:
-        xm.all_reduce(xm.REDUCE_SUM, [averaged_losses], groups=parallel_state.get_data_parallel_groups(), pin_layout=False)
+        xm.all_reduce(
+            xm.REDUCE_SUM, [averaged_losses], 
+            groups=parallel_state.get_data_parallel_groups(), pin_layout=False
+        )
     else:
         torch.distributed.all_reduce(averaged_losses, group=parallel_state.get_data_parallel_group())
     averaged_losses = averaged_losses / torch.distributed.get_world_size(

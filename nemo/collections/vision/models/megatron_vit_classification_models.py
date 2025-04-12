@@ -464,8 +464,8 @@ class MegatronVitClassificationModel(MegatronBaseModel):
         coalesced = torch._utils._flatten_dense_tensors(grads)
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
-                        groups=parallel_state.get_tensor_model_parallel_groups(), 
-                        pin_layout=False)
+                            groups=parallel_state.get_tensor_model_parallel_groups(), 
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
@@ -654,8 +654,8 @@ class MegatronVitClassificationModel(MegatronBaseModel):
         total_num_parameters = torch.tensor(num_parameters_on_device).to(device=get_current_device())
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
-                        groups=parallel_state.get_model_parallel_groups(), 
-                        pin_layout=False)
+                            groups=parallel_state.get_model_parallel_groups(), 
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 

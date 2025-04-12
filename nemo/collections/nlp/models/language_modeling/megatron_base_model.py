@@ -1130,7 +1130,7 @@ class MegatronBaseModel(NLPModel):
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
                             groups=parallel_state.get_model_parallel_groups(), 
-                                pin_layout=False)
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
@@ -1187,7 +1187,7 @@ class MegatronBaseModel(NLPModel):
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
                             groups=parallel_state.get_model_parallel_groups(), 
-                                pin_layout=False)
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
         return num_parameters_on_device, total_num_parameters

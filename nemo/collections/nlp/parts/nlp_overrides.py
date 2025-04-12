@@ -883,8 +883,8 @@ class NLPFSDPStrategy(FSDPStrategy):
                     )
                     if xm:
                         xm.all_reduce(xm.REDUCE_MIN, [is_not_tp_duplicate], 
-                                    groups=parallel_state.get_tensor_model_parallel_groups(), 
-                                    pin_layout=False)
+                                        groups=parallel_state.get_tensor_model_parallel_groups(), 
+                                        pin_layout=False)
                     else:
                         torch.distributed.all_reduce(
                             is_not_tp_duplicate, op=ReduceOp.MIN, group=parallel_state.get_tensor_model_parallel_group()
@@ -1558,8 +1558,8 @@ class GradScaler(torch.amp.GradScaler):
         # Update across all model parallel instances.
         if xm:
             xm.all_reduce(xm.REDUCE_MAX, [found_inf], 
-                        groups=parallel_state.get_model_parallel_groups(), 
-                        pin_layout=False)
+                            groups=parallel_state.get_model_parallel_groups(), 
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(
                 found_inf, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
@@ -1612,8 +1612,8 @@ class GradScaler(torch.amp.GradScaler):
             # Update across all model parallel instances.
             if xm:
                 xm.all_reduce(xm.REDUCE_MAX, [found_inf_combined], 
-                            groups=parallel_state.get_model_parallel_groups(), 
-                            pin_layout=False)
+                                groups=parallel_state.get_model_parallel_groups(), 
+                                pin_layout=False)
             else:
                 torch.distributed.all_reduce(
                     found_inf_combined, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()
@@ -1625,8 +1625,8 @@ class GradScaler(torch.amp.GradScaler):
                     # Update across all model parallel instances.
                     if xm:
                         xm.all_reduce(xm.REDUCE_MAX, [found_inf], 
-                                    groups=parallel_state.get_model_parallel_groups(), 
-                                    pin_layout=False)
+                                        groups=parallel_state.get_model_parallel_groups(), 
+                                        pin_layout=False)
                     else:
                         torch.distributed.all_reduce(
                             found_inf, op=torch.distributed.ReduceOp.MAX, group=parallel_state.get_model_parallel_group()

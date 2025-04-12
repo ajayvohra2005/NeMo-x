@@ -150,7 +150,9 @@ class InternViTRMSNorm(torch.nn.Module):
             var = input_.sum(-1, keepdim=True) * 0.0  # Zero-out the dummy heads.
 
         if xm:
-            output = xm.all_gather(var, dim=last_dim, groups=get_tensor_model_parallel_groups(), pin_layout=False)
+            output = xm.all_gather(var, dim=last_dim, 
+                                   groups=get_tensor_model_parallel_groups(), 
+                                   pin_layout=False)
         else:
             tensor_list = [torch.empty_like(var) for _ in range(world_size)]
             tensor_list[rank] = var

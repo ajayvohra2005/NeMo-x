@@ -273,8 +273,8 @@ class GradScaler(torch.amp.GradScaler):
         # Update across all model parallel instances.
         if xm:
             xm.all_reduce(xm.REDUCE_MAX, [found_inf], 
-                        groups=parallel_state.get_model_parallel_groups(), 
-                        pin_layout=False)
+                            groups=parallel_state.get_model_parallel_groups(), 
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(
                 found_inf,
@@ -331,8 +331,8 @@ class GradScaler(torch.amp.GradScaler):
             # Update across all model parallel instances.
             if xm:
                 xm.all_reduce(xm.REDUCE_MAX, [found_inf_combined], 
-                            groups=parallel_state.get_model_parallel_groups(), 
-                            pin_layout=False)
+                                groups=parallel_state.get_model_parallel_groups(), 
+                                pin_layout=False)
             else:
                 torch.distributed.all_reduce(
                     found_inf_combined,
@@ -346,8 +346,8 @@ class GradScaler(torch.amp.GradScaler):
                     # Update across all model parallel instances.
                     if xm:
                         xm.all_reduce(xm.REDUCE_MAX, [found_inf], 
-                                    groups=parallel_state.get_model_parallel_groups(), 
-                                    pin_layout=False)
+                                        groups=parallel_state.get_model_parallel_groups(), 
+                                        pin_layout=False)
                     else:
                         torch.distributed.all_reduce(
                             found_inf,

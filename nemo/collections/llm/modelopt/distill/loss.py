@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Tuple
 import torch
 import torch.nn.functional as F
 from megatron.core import parallel_state
+from megatron.core.process_groups_config import WrappedProcessGroup 
 from torch import Tensor
 from torch.nn.modules.loss import _Loss
 from nemo.utils import get_xla_model
@@ -172,14 +173,14 @@ class _AllReduce(torch.autograd.Function):
     """Implementation from old PyTorch `torch.distributed.nn.parallel`."""
 
     @staticmethod
-    def forward(ctx, op, group, tensor):
+    def forward(ctx, op, group:WrappedProcessGroup, tensor:torch.Tensor):
         # pylint: disable=C0116
         ctx.group, ctx.op = group, op
         tensor = tensor.clone()
         if xm:
-            xm.all_reduce(op, [tensor], groups=group, pin_layout=False)
+            xm.all_reduce(op, [tensor], groups=group.rank_groups, pin_layout=False)
         else:
-            torch.distributed.all_reduce(tensor, op=op, group=group)
+            torch.distributed.all_reduce(tensor, op=op, group=group.process_group)
         return tensor
 
     @staticmethod
@@ -196,4 +197,5 @@ def all_reduce_autograd(tensor,
     Needed instead of other all-reduce functions available when the computation following
     the all-reduce call differs per rank. In KL loss, this corresponds to the different numerators.
     """
+    group = WrappedProcessGroup(torch.distributed.group.WORLD)
     return _AllReduce.apply(op, group, tensor)

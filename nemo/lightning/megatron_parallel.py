@@ -1789,8 +1789,8 @@ class MaskedTokenLossReduction(MegatronLossReduction):
             )
             if xm:
                 xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
-                            groups=parallel_state.get_data_parallel_groups(), 
-                            pin_layout=False)
+                                groups=parallel_state.get_data_parallel_groups(), 
+                                pin_layout=False)
             else:
                 torch.distributed.all_reduce(loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group())
             return loss_sum_for_ub, num_valid_tokens_in_ub, {"loss_sum_and_ub_size": loss_sum_and_ub_size_all_gpu}
@@ -1847,8 +1847,8 @@ def masked_token_loss(tensor: Tensor, mask: Tensor, cp_size: int = 1):
         from megatron.core import parallel_state
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [loss], 
-                        groups=parallel_state.get_context_parallel_groups(), 
-                        pin_layout=False)
+                            groups=parallel_state.get_context_parallel_groups(), 
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
 

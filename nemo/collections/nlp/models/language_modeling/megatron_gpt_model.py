@@ -1102,7 +1102,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
                             groups=parallel_state.get_tensor_model_parallel_groups(), 
-                                pin_layout=False)
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
@@ -1162,7 +1162,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     if xm:
                         xm.all_reduce(xm.REDUCE_SUM, [grad], 
                                         groups=parallel_state.get_embedding_groups(), 
-                                pin_layout=False)
+                                        pin_layout=False)
                     else:
                         torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
 
@@ -1481,7 +1481,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     if xm:
                         xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
                                         groups=parallel_state.get_data_parallel_groups(), 
-                                pin_layout=False)
+                                        pin_layout=False)
                     else:
                         torch.distributed.all_reduce(
                             loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
@@ -1647,8 +1647,8 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         if parallel_state.get_context_parallel_world_size() > 1:
             if xm:
                 xm.all_reduce(xm.REDUCE_SUM, [loss], 
-                            groups=parallel_state.get_context_parallel_groups(), 
-                            pin_layout=False)
+                                groups=parallel_state.get_context_parallel_groups(), 
+                                pin_layout=False)
             else:
                 torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
         return loss

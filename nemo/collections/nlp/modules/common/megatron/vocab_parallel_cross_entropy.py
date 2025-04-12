@@ -40,8 +40,8 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
         logits_max = torch.max(vocab_parallel_logits, dim=-1)[0]
         if xm:
             xm.all_reduce(xm.REDUCE_MAX, [logits_max], 
-                        groups=get_tensor_model_parallel_groups(), 
-                        pin_layout=False)
+                            groups=get_tensor_model_parallel_groups(), 
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(
                 logits_max, op=torch.distributed.ReduceOp.MAX, group=get_tensor_model_parallel_group()
@@ -74,8 +74,8 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
         # All reduce is needed to get the chunks from other GPUs.
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [predicted_logits], 
-                        groups=get_tensor_model_parallel_groups(), 
-                        pin_layout=False)
+                            groups=get_tensor_model_parallel_groups(), 
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(
                 predicted_logits, op=torch.distributed.ReduceOp.SUM, group=get_tensor_model_parallel_group()
@@ -87,8 +87,8 @@ class _VocabParallelCrossEntropy(torch.autograd.Function):
         sum_exp_logits = exp_logits.sum(dim=-1)
         if xm:
             xm.all_reduce(xm.REDUCE_SUM, [sum_exp_logits], 
-                        groups=get_tensor_model_parallel_groups(), 
-                        pin_layout=False)
+                            groups=get_tensor_model_parallel_groups(), 
+                            pin_layout=False)
         else:
             torch.distributed.all_reduce(
                 sum_exp_logits, op=torch.distributed.ReduceOp.SUM, group=get_tensor_model_parallel_group()

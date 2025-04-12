@@ -573,7 +573,7 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
             coalesced /= parallel_state.get_data_parallel_world_size()
             if xm:
                 xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
-                            groups=parallel_state.get_data_parallel_groups(), 
+                                groups=parallel_state.get_data_parallel_groups(), 
                                 pin_layout=False)
             else:
                 torch.distributed.all_reduce(coalesced, group=parallel_state.get_data_parallel_group())
@@ -601,8 +601,8 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     grad = word_embeddings_weight.grad
                 if xm:
                     xm.all_reduce(xm.REDUCE_SUM, [grad], 
-                                groups=parallel_state.get_embedding_groups(), 
-                                pin_layout=False)
+                                    groups=parallel_state.get_embedding_groups(), 
+                                    pin_layout=False)
                 else:
                     torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
             else:
@@ -627,8 +627,8 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     grad = position_embeddings_weight.grad
                 if xm:
                     xm.all_reduce(xm.REDUCE_SUM, [grad], 
-                                groups=parallel_state.get_position_embedding_groups(), 
-                                pin_layout=False)
+                                    groups=parallel_state.get_position_embedding_groups(), 
+                                    pin_layout=False)
                 else:
                     torch.distributed.all_reduce(grad, group=parallel_state.get_position_embedding_group())
 
@@ -651,8 +651,8 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     grad = position_embeddings_weight.grad
                 if xm:
                     xm.all_reduce(xm.REDUCE_SUM, [grad], 
-                                groups=parallel_state.get_position_embedding_groups(), 
-                                pin_layout=False)
+                                    groups=parallel_state.get_position_embedding_groups(), 
+                                    pin_layout=False)
                 else:
                     torch.distributed.all_reduce(
                         grad, group=parallel_state.get_encoder_relative_position_embedding_group()
@@ -671,8 +671,8 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                     grad = position_embeddings_weight.grad
                 if xm:
                     xm.all_reduce(xm.REDUCE_SUM, [grad], 
-                            groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
-                            pin_layout=False)
+                                    groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
+                                    pin_layout=False)
                 else:
                     torch.distributed.all_reduce(
                         grad, group=parallel_state.get_decoder_relative_position_embedding_group()
@@ -689,8 +689,8 @@ class MegatronLMEncoderDecoderModel(MegatronBaseModel):
                         grad = position_embeddings_weight.grad
                     if xm:
                         xm.all_reduce(xm.REDUCE_SUM, [grad], 
-                                groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
-                                pin_layout=False)
+                                        groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
+                                        pin_layout=False)
                     else:
                         torch.distributed.all_reduce(
                             grad, group=parallel_state.get_decoder_relative_position_embedding_group()
