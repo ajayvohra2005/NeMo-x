@@ -916,8 +916,7 @@ class TensorRTLLM(ITritonDeployable):
         pp_first_rank = parallel_state.get_pipeline_model_parallel_first_rank()
         pp_last_rank = parallel_state.get_pipeline_model_parallel_last_rank()
         pp_size = parallel_state.get_pipeline_model_parallel_world_size()
-        pp_group = parallel_state.get_pipeline_model_parallel_group() \
-            if not xm else parallel_state.get_pipeline_model_parallel_groups()
+        pp_group = parallel_state.get_pipeline_model_parallel_group()
         vp_size = parallel_state.get_virtual_pipeline_model_parallel_world_size()
         if not vp_size:
             vp_size = 1
