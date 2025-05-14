@@ -16,7 +16,7 @@ import json
 import os
 import pickle
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from tqdm.auto import tqdm
 

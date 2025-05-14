@@ -29,7 +29,7 @@ import argparse
 import os
 
 import requests
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from PIL import Image
 from transformers import AutoProcessor
@@ -37,7 +37,7 @@ from transformers import CLIPModel as HFCLIPModel
 
 import nemo.lightning as nl
 from nemo.collections.vlm import CLIPModel
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 
 
 def load_image(image_path: str) -> Image.Image:

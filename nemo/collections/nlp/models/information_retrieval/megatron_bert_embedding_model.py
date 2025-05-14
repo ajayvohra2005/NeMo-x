@@ -15,7 +15,6 @@
 import logging
 import os
 
-from nemo.utils import get_current_device
 import numpy as np
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
@@ -43,12 +42,14 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
     average_losses_across_data_parallel_group,
 )
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
+
 
 try:
     from megatron.core import parallel_state
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
     from megatron.core.transformer.module import Float16Module as MCoreFloat16Module
+    from megatron.core.device_utils import get_xla_model, get_current_device
 
     HAVE_MEGATRON_CORE = True
 

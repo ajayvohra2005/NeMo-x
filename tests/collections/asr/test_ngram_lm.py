@@ -15,7 +15,7 @@
 import random
 from pathlib import Path
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import pytest
 import torch
 from torch.nn.utils.rnn import pad_sequence

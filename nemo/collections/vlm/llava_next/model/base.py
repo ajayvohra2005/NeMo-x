@@ -24,7 +24,7 @@ from megatron.core.packed_seq_params import PackedSeqParams
 
 from nemo.collections.vlm.llava_next.model.utils import pack_image_features
 from nemo.collections.vlm.neva.data.multimodal_tokens import IMAGE_TOKEN_INDEX
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 
 def llava_next_data_step(dataloader_iter) -> Dict[str, torch.Tensor]:
     """

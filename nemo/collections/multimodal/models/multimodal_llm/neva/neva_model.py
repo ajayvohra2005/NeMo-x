@@ -17,7 +17,7 @@ from functools import partial
 from itertools import chain
 from typing import Any, Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import packaging
 import torch

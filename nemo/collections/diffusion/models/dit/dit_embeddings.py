@@ -27,7 +27,7 @@ from megatron.core.models.common.embeddings.rotary_pos_embedding import get_pos_
 from megatron.core.transformer.module import MegatronModule
 from torch import nn
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 
 
 class ParallelTimestepEmbedding(TimestepEmbedding):

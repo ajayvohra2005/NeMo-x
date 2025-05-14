@@ -16,7 +16,7 @@ from datetime import datetime
 from functools import partial
 from typing import Any
 
-from nemo.utils import get_current_device
+
 import torch
 from lightning.pytorch import Trainer
 from omegaconf import DictConfig, open_dict
@@ -31,7 +31,7 @@ from nemo.collections.nlp.models.language_modeling.megatron_base_model import Me
 from nemo.collections.nlp.modules.common.megatron.module import Float16Module
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.common import Serialization
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
 
 try:
     from apex import amp
@@ -43,6 +43,8 @@ except (ImportError, ModuleNotFoundError):
 try:
     from megatron.core import parallel_state
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
+    from megatron.core.device_utils import get_current_device
+    from megatron.core.tensor_parallel.mappings import all_reduce
 
     HAVE_MEGATRON_CORE = True
 
@@ -66,7 +68,6 @@ except Exception:
 
 DUMMY_TENSOR = torch.tensor([1.0])
 
-xm = get_xla_model()
 
 class Imagen(torch.nn.Module, Serialization):
     def __init__(self, cfg, model_parallel_config):
@@ -507,13 +508,7 @@ class MegatronImagen(MegatronBaseModel):
 
         # to be summed across data parallel group
         total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
-
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
-                          groups=parallel_state.get_pipeline_model_parallel_groups(), 
-                          pin_layout=False)
-        else:
-            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

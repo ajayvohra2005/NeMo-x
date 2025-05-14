@@ -28,7 +28,8 @@ try:
         TERowParallelLinear,
     )
 except ImportError:
-    from nemo.utils import logging, get_xla_model
+    from nemo.utils import logging
+from megatron.core.device_utils import get_xla_model
 
     # These Defaults are needed to make sure the code compiles
     TEColumnParallelLinear = None

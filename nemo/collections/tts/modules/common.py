@@ -16,7 +16,7 @@
 
 from typing import Optional, Tuple
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 import numpy as np
 import torch
 from torch import Tensor, nn

@@ -13,7 +13,7 @@
 # limitations under the License.
 from typing import Optional
 
-from nemo.utils import get_local_device_count
+from megatron.core.device_utils import get_local_device_count
 import nemo_run as run
 import torch
 

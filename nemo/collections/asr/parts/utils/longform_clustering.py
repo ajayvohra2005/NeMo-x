@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Dict, List, Tuple
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from tqdm import tqdm
 from nemo.collections.asr.parts.utils.offline_clustering import (

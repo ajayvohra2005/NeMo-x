@@ -26,9 +26,10 @@ from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils imp
 )
 from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset import BlendableDataset
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_sft_model import MegatronGPTSFTModel
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
 
 try:
+    from megatron.core.tensor_parallel.mappings import all_reduce
     from megatron.core import parallel_state
 
     HAVE_MEGATRON_CORE = True
@@ -36,8 +37,6 @@ try:
 except (ImportError, ModuleNotFoundError):
 
     HAVE_MEGATRON_CORE = False
-
-xm = get_xla_model()
 
 def listify(tensor):
     l_tensor = []
@@ -468,12 +467,7 @@ class MegatronGPTEmbeddingModel(MegatronGPTSFTModel):
 
         cp_size = self.cfg.get('context_parallel_size', 1)
         if cp_size > 1:
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [loss], 
-                                groups=parallel_state.get_context_parallel_groups(), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
+            all_reduce(loss, group=parallel_state.get_context_parallel_group())
         query_hs = query_hs.clone().detach()
         pos_doc_hs = pos_doc_hs.clone().detach()
         diff_cs = pos_cs - neg_cs

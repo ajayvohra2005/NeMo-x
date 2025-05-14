@@ -21,7 +21,7 @@ from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import lightning
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from _weakref import proxy
 from lightning.pytorch.callbacks.model_checkpoint import ModelCheckpoint as PTLModelCheckpoint

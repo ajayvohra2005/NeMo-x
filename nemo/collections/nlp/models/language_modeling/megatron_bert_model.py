@@ -16,8 +16,6 @@ import itertools
 import queue
 from typing import Any, Dict, Iterator, List, Optional
 
-from nemo.utils import get_current_device
-import torch
 import torch.nn.functional as F
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig
@@ -45,7 +43,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.neural_types import ChannelType, MaskType, NeuralType
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
 
 try:
     import logging
@@ -62,6 +60,8 @@ try:
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
     from megatron.core.transformer.module import Float16Module as MCoreFloat16Module
     from megatron.core.transformer.transformer_config import TransformerConfig
+    from megatron.core.device_utils import get_current_device
+    from megatron.core.tensor_parallel.mappings import all_reduce
 
     HAVE_MEGATRON_CORE = True
 
@@ -75,8 +75,6 @@ try:
 except (ImportError, ModuleNotFoundError):
     logging.warning("Megatron num_microbatches_calculator not found, using Apex version.")
     from apex.transformer.pipeline_parallel.utils import get_num_microbatches
-
-xm = get_xla_model()
 
 class MegatronBertModel(MegatronBaseModel):
     """
@@ -534,12 +532,7 @@ class MegatronBertModel(MegatronBaseModel):
                     grad = word_embeddings_weight.main_grad
                 else:
                     grad = word_embeddings_weight.grad
-                if xm:
-                    xm.all_reduce(xm.REDUCE_SUM, [grad], 
-                                    groups=parallel_state.get_embedding_groups(), 
-                                    pin_layout=False)
-                else:
-                    torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
+                all_reduce(grad, group=parallel_state.get_embedding_group())
 
     def validation_step(self, dataloader_iter):
         """Run validation step."""
@@ -897,12 +890,7 @@ class MegatronBertModel(MegatronBaseModel):
             self._append_sequence_parallel_module_grads(self.model, grads)
 
         coalesced = torch._utils._flatten_dense_tensors(grads)
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
-                            groups=parallel_state.get_tensor_model_parallel_groups(), 
-                            pin_layout=False)
-        else:
-            torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
+        all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
             buf.copy_(synced)
 

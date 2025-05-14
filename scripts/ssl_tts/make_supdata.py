@@ -22,7 +22,7 @@ from pathlib import Path
 
 import hydra.utils
 import librosa
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 from omegaconf import open_dict

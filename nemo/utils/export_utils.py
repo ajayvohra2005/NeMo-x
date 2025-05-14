@@ -17,7 +17,7 @@ from contextlib import nullcontext
 from enum import Enum
 from typing import Callable, Dict, Optional, Type
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 import onnx
 import torch
 import torch.nn as nn

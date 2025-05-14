@@ -16,7 +16,7 @@ import tempfile
 from functools import partial
 from typing import Dict, List, Optional, Tuple, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import open_clip
 import torch
 import torch.nn as nn

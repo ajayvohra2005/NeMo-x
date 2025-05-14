@@ -50,11 +50,12 @@ from nemo.collections.nlp.modules.common.megatron.utils import get_iterator_k_sp
 from nemo.collections.nlp.parts.nlp_overrides import GlobalBatchDataFetcher
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes import Exportable
-from nemo.utils import AppState, logging, timers, get_xla_model
+from nemo.utils import AppState, logging, timers
 
 try:
     from megatron.core import parallel_state
-
+    from megatron.core.device_utils import get_xla_model
+    
     HAVE_MEGATRON_CORE = True
 
 except (ImportError, ModuleNotFoundError):

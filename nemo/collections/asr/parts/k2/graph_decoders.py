@@ -17,7 +17,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from jiwer import wer as word_error_rate
 from omegaconf import DictConfig

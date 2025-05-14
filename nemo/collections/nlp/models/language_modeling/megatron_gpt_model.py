@@ -21,7 +21,6 @@ from functools import cache, partial
 from importlib.metadata import version
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-from nemo.utils import get_current_device, get_current_device_type
 import packaging
 import torch
 from lightning.pytorch.accelerators import CPUAccelerator
@@ -71,11 +70,14 @@ from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes import Exportable
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.neural_types import ChannelType, NeuralType
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
 from nemo.utils.import_utils import safe_import, safe_import_from
 from nemo.utils.te_utils import is_float8tensor, te_version
 
+
 try:
+    from megatron.core.device_utils import get_current_device, get_current_device_type
+    from megatron.core.tensor_parallel.mappings import all_reduce
     from megatron.core import InferenceParams, parallel_state
     from megatron.core.datasets.blended_megatron_dataset_builder import BlendedMegatronDatasetBuilder
     from megatron.core.datasets.gpt_dataset import GPTDataset, GPTDatasetConfig, MockGPTDataset
@@ -127,8 +129,6 @@ get_gpt_layer_with_te_and_hyena_spec, HAVE_HYENA_SPEC = safe_import_from(
     "nemo.collections.nlp.modules.common.hyena.hyena_spec", "get_gpt_layer_with_te_and_hyena_spec"
 )
 HAVE_TE = HAVE_TE and HAVE_TE_MODULE and HAVE_HYENA_SPEC
-
-xm = get_xla_model()
 
 @cache
 def mcore_supports_moe() -> bool:
@@ -1099,12 +1099,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
             # may be empty for PEFT training
             return
         coalesced = torch._utils._flatten_dense_tensors(grads)
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
-                            groups=parallel_state.get_tensor_model_parallel_groups(), 
-                            pin_layout=False)
-        else:
-            torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
+        all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
             buf.copy_(synced)
 
@@ -1118,12 +1113,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                 grads.append(grad.data)
         if len(grads) > 0:
             coalesced = torch._utils._flatten_dense_tensors(grads)
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
-                                groups=parallel_state.get_data_parallel_groups(), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(coalesced, group=parallel_state.get_data_parallel_group())
+            all_reduce(coalesced, group=parallel_state.get_data_parallel_group())
             for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
                 buf.copy_(synced)
 
@@ -1159,12 +1149,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                         grad = word_embeddings_weight.main_grad
                     else:
                         grad = word_embeddings_weight.grad
-                    if xm:
-                        xm.all_reduce(xm.REDUCE_SUM, [grad], 
-                                        groups=parallel_state.get_embedding_groups(), 
-                                        pin_layout=False)
-                    else:
-                        torch.distributed.all_reduce(grad, group=parallel_state.get_embedding_group())
+                    all_reduce(grad, group=parallel_state.get_embedding_group())
 
     def _make_data_iterator_list(self, data_iterator: Iterator) -> List[Iterator]:
         """Convert data iterator into form expected by Megatron
@@ -1478,12 +1463,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
                     )
                     # Could potentially reduce num_valid_samples_in_microbatch and use that to
                     # aggregate instead of len(self._validation_ds)
-                    if xm:
-                        xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
-                                        groups=parallel_state.get_data_parallel_groups(), 
-                                        pin_layout=False)
-                    else:
-                        torch.distributed.all_reduce(
+                    all_reduce(
                             loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
                         )
                     return loss_for_ub * cp_size, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}
@@ -1645,12 +1625,7 @@ class MegatronGPTModel(MegatronBaseModel, TextGeneration):
         # TODO: add nemo version here
         loss = torch.sum(losses.view(-1) * loss_mask) / num_valid_tokens_in_ub  # sequence level nll
         if parallel_state.get_context_parallel_world_size() > 1:
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [loss], 
-                                groups=parallel_state.get_context_parallel_groups(), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
+            all_reduce(loss, group=parallel_state.get_context_parallel_group())
         return loss
 
     def build_train_valid_test_datasets(self):

@@ -14,8 +14,8 @@
 import os
 import tempfile
 
-from nemo.utils import get_current_device
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device
+from megatron.core.device_utils import get_current_device_type
 import onnx
 import pytest
 import torch.cuda

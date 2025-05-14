@@ -36,7 +36,7 @@ from nemo.lightning import get_vocab_size, io, teardown
 from nemo.lightning.megatron_parallel import MaskedTokenLossReduction
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
 from nemo.utils.import_utils import safe_import
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 
 _, HAVE_TE = safe_import("transformer_engine")
 

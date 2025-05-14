@@ -16,7 +16,7 @@ import math
 import random
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import omegaconf
 import pytest
 import torch

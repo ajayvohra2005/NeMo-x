@@ -21,7 +21,7 @@ Example:
 import argparse
 
 import requests
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from megatron.core.inference.common_inference_params import CommonInferenceParams
 from PIL import Image

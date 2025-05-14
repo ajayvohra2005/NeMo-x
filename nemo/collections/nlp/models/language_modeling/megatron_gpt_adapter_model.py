@@ -20,7 +20,7 @@
 import itertools
 import os
 
-from nemo.utils import get_current_device, get_current_device_type
+from megatron.core.device_utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig

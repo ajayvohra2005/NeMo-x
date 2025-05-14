@@ -14,10 +14,10 @@
 import os
 import tempfile
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import pytest
 import torch
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 from omegaconf import OmegaConf
 
 from nemo.collections.tts.models import FastPitchModel, HifiGanModel, RadTTSModel

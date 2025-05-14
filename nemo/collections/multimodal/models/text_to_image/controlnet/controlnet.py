@@ -15,13 +15,13 @@
 from typing import Any
 
 import einops
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.nn as nn
 from einops import rearrange, repeat
 from lightning.pytorch import Trainer
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 from omegaconf import DictConfig
 from torch._inductor import config as inductor_config
 
@@ -45,7 +45,6 @@ from nemo.collections.multimodal.modules.stable_diffusion.diffusionmodules.util 
 from nemo.collections.multimodal.parts.stable_diffusion.utils import exists, log_txt_as_img
 from nemo.collections.nlp.models.language_modeling.megatron_base_model import MegatronBaseModel
 from nemo.collections.nlp.modules.common.megatron.module import Float16Module
-from nemo.utils import logging, get_xla_model
 
 try:
     from megatron.core.num_microbatches_calculator import get_num_microbatches
@@ -57,6 +56,7 @@ except (ImportError, ModuleNotFoundError):
 try:
     from megatron.core import parallel_state
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
+    from megatron.core.tensor_parallel.mappings import all_reduce
 
     HAVE_MEGATRON_CORE = True
 
@@ -71,7 +71,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     TORCHVISION_AVAILABLE = False
 
-xm = get_xla_model()
+from nemo.utils import logging
 
 class ControlledUnetModel(UNetModel):
     '''
@@ -915,13 +915,7 @@ class MegatronControlNet(MegatronBaseModel):
 
         # to be summed across data parallel group
         total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
-
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
-                        groups=parallel_state.get_model_parallel_groups(), 
-                        pin_layout=False)
-        else:
-            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

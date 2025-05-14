@@ -21,7 +21,7 @@ from typing import Iterable, Literal
 
 import click
 import lightning.pytorch as pl
-from nemo.utils import get_current_device, get_current_device_type
+from megatron.core.device_utils import get_current_device, get_current_device_type
 import torch
 from lhotse import compute_num_samples
 from omegaconf import OmegaConf

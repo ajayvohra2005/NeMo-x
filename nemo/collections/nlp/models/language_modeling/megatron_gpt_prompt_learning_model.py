@@ -17,7 +17,6 @@ import os
 from functools import partial
 from typing import Any, List, Optional, Union
 
-from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig
@@ -44,14 +43,16 @@ from nemo.collections.nlp.modules.common.text_generation_utils import (
 from nemo.collections.nlp.modules.common.transformer.text_generation import LengthParam, SamplingParam
 from nemo.collections.nlp.parts.nlp_overrides import GradScaler, NLPSaveRestoreConnector
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import AppState, logging, get_xla_model
+from nemo.utils import AppState, logging
 from nemo.utils.decorators import deprecated_warning
 
 try:
     from megatron.core import InferenceParams, ModelParallelConfig, parallel_state, tensor_parallel
     from megatron.core.enums import ModelType
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
+    from megatron.core.device_utils import get_current_device, get_xla_model
 
+    
     HAVE_MEGATRON_CORE = True
 except (ImportError, ModuleNotFoundError):
 

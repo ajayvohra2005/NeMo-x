@@ -15,7 +15,7 @@
 from math import ceil
 from typing import Any, Dict, List, Optional, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.nn as nn
 from lightning.pytorch import Trainer

@@ -44,7 +44,7 @@ from typing import (
     runtime_checkable,
 )
 
-from nemo.utils import get_current_device, get_xla_model
+
 import torch
 import torch.distributed
 from lightning.pytorch.trainer.states import TrainerFn
@@ -56,7 +56,8 @@ from megatron.core.optimizer import OptimizerConfig
 from megatron.core.transformer.transformer_config import TransformerConfig
 from torch import Tensor, nn
 from typing_extensions import override
-from nemo.utils import get_xla_model
+from megatron.core.device_utils import get_current_device
+from megatron.core.tensor_parallel.mappings import all_reduce
 
 try:
     from megatron.core.distributed.custom_fsdp import FullyShardedDataParallel
@@ -72,8 +73,6 @@ STEP_OUTPUT = Optional[Union[Tensor, Mapping[str, Any]]]
 
 if TYPE_CHECKING:
     import lightning.pytorch as pl
-
-xm = get_xla_model()
 
 @runtime_checkable
 class PrecisionPluginProtocol(Protocol[DataT]):
@@ -1787,12 +1786,7 @@ class MaskedTokenLossReduction(MegatronLossReduction):
             loss_sum_and_ub_size_all_gpu = torch.cat(
                 [loss_sum_for_ub.clone().detach().view(1), num_valid_tokens_in_ub]
             )
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
-                                groups=parallel_state.get_data_parallel_groups(), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group())
+            all_reduce(loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group())
             return loss_sum_for_ub, num_valid_tokens_in_ub, {"loss_sum_and_ub_size": loss_sum_and_ub_size_all_gpu}
 
         reduced_loss = average_losses_across_data_parallel_group([loss_sum_for_ub / num_valid_tokens_in_ub])
@@ -1845,12 +1839,7 @@ def masked_token_loss(tensor: Tensor, mask: Tensor, cp_size: int = 1):
     loss = torch.sum(losses.view(-1) * loss_mask)  # sequence level nll
     if cp_size > 1:
         from megatron.core import parallel_state
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [loss], 
-                            groups=parallel_state.get_context_parallel_groups(), 
-                            pin_layout=False)
-        else:
-            torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
+        all_reduce(loss, group=parallel_state.get_context_parallel_group())
 
     return loss
 

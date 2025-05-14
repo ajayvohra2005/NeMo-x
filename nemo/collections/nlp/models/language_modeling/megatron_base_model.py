@@ -20,7 +20,6 @@ from dataclasses import fields
 from datetime import datetime
 from typing import Any, Dict, Optional, Union
 
-from nemo.utils import get_current_device
 import omegaconf
 import torch
 import torch.nn as nn
@@ -45,16 +44,18 @@ from nemo.collections.nlp.parts import utils_funcs
 from nemo.collections.nlp.parts.nlp_overrides import NEMO_MEGATRON_MODEL_PARALLEL_APPSTATE_OVERRIDE, GradScaler
 from nemo.collections.nlp.parts.utils_funcs import activation_to_func
 from nemo.core.optim import MainParamsOptimizerWrapper, prepare_lr_scheduler
-from nemo.utils import AppState, logging, str_to_dtype, get_xla_model
+from nemo.utils import AppState, logging, str_to_dtype
 from nemo.utils.get_rank import is_global_rank_zero
 
 try:
+    from megatron.core.tensor_parallel.mappings import all_reduce
     from megatron.core import ModelParallelConfig, parallel_state
     from megatron.core.distributed import DistributedDataParallel as McoreDDP
     from megatron.core.transformer.enums import AttnBackend
     from megatron.core.transformer.module import Float16Module as MCoreFloat16Module
     from megatron.core.transformer.transformer_config import MLATransformerConfig, TransformerConfig
     from megatron.core.utils import init_method_normal, scaled_init_method_normal
+    from megatron.core.device_utils import get_current_device
 
     HAVE_MEGATRON_CORE = True
 
@@ -80,7 +81,6 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ["MegatronBaseModel"]
 
-xm = get_xla_model()
 
 class MegatronBaseModel(NLPModel):
     """
@@ -701,12 +701,7 @@ class MegatronBaseModel(NLPModel):
             grads = [param.grad.data for param in bucket]
             coalesced = torch._utils._flatten_dense_tensors(grads)
             coalesced /= parallel_state.get_data_parallel_world_size(with_context_parallel=True)
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
-                                groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(
+            all_reduce(
                     coalesced, group=parallel_state.get_data_parallel_group(with_context_parallel=True)
                 )
             for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
@@ -1127,12 +1122,7 @@ class MegatronBaseModel(NLPModel):
         # to be summed across data parallel group
         total_num_parameters = torch.tensor(num_parameters_on_device).to(device=get_current_device())
 
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
-                            groups=parallel_state.get_model_parallel_groups(), 
-                            pin_layout=False)
-        else:
-            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         return num_parameters_on_device, total_num_parameters
 
@@ -1184,12 +1174,7 @@ class MegatronBaseModel(NLPModel):
 
         # to be summed across data parallel group
         total_num_parameters = torch.tensor(num_parameters_on_device).to(device=get_current_device())
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
-                            groups=parallel_state.get_model_parallel_groups(), 
-                            pin_layout=False)
-        else:
-            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
         return num_parameters_on_device, total_num_parameters
 
     def build_model_parallel_config(self) -> ModelParallelConfig:

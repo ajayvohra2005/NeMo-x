@@ -19,7 +19,7 @@ import re
 import warnings
 from typing import List, Set, Tuple
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from transformers import CLIPImageProcessor
 

@@ -16,7 +16,7 @@ import math
 from dataclasses import dataclass
 from typing import Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch._dynamo
 from accelerated_scan.triton import scan

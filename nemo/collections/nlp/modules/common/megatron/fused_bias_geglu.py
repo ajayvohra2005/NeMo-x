@@ -16,7 +16,7 @@
 import torch
 
 from nemo.collections.nlp.modules.common.megatron.fused_bias_gelu import bias_gelu, bias_gelu_back
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 
 try:
     from apex._autocast_utils import _cast_if_autocast_enabled

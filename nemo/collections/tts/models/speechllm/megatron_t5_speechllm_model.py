@@ -22,9 +22,8 @@ from typing import Any, List
 
 import editdistance
 import imageio
-from nemo.utils import get_current_device
+
 import numpy as np
-from nemo.utils import get_current_device_type
 import soundfile as sf
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
@@ -53,7 +52,7 @@ from nemo.collections.tts.losses.aligner_loss import ForwardSumLoss
 from nemo.collections.tts.models import AudioCodecModel
 from nemo.collections.tts.models.speechllm.megatron_base_speechllm_prompt_model import MegatronBaseSpeechLM
 from nemo.collections.tts.parts.utils.helpers import plot_alignment_to_numpy_for_speechllm, plot_codec_to_numpy
-from nemo.utils import AppState, logging, get_xla_model
+from nemo.utils import AppState, logging
 
 try:
     from apex.transformer.pipeline_parallel.utils import get_micro_batch_size, get_num_microbatches
@@ -68,6 +67,11 @@ try:
     from megatron.core import parallel_state, tensor_parallel
     from megatron.core.enums import ModelType
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
+    from megatron.core.device_utils import (
+        get_current_device, 
+        get_current_device_type,
+        get_xla_model
+    )
 
     HAVE_MEGATRON_CORE = True
 

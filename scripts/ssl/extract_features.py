@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import List
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 from tqdm import tqdm

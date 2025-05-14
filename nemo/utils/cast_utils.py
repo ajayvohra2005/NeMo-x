@@ -14,7 +14,7 @@ device = get_current_device()# Copyright (c) 2022, NVIDIA CORPORATION.  All righ
 
 from contextlib import contextmanager, nullcontext
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 import torch
 
 

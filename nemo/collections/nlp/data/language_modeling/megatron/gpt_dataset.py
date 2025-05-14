@@ -19,7 +19,6 @@ import time
 
 import numpy as np
 import torch
-from nemo.utils import get_current_device
 from omegaconf.dictconfig import DictConfig
 
 from nemo.collections.nlp.data.language_modeling.megatron.base_dataset_utils import (
@@ -30,18 +29,20 @@ from nemo.collections.nlp.data.language_modeling.megatron.blendable_dataset impo
 from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import deallocate_indexed_dataset_memory
 from nemo.collections.nlp.data.language_modeling.megatron.indexed_dataset import make_dataset as make_indexed_dataset
 from nemo.core import Dataset
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
+
 
 try:
+    from megatron.core.tensor_parallel.mappings import all_reduce
     from megatron.core import parallel_state
-
+    from megatron.core.device_utils import get_current_device
+    
     HAVE_MEGATRON_CORE = True
 
 except (ImportError, ModuleNotFoundError):
 
     HAVE_MEGATRON_CORE = False
 
-xm = get_xla_model()
 
 def build_dataset(cfg, trainer, data_prefix, data_impl, num_samples, seq_length, seed, skip_warmup, tokenizer, name):
     def _build_dataset(current_data_prefix, current_num_samples):
@@ -694,16 +695,8 @@ def _build_index_mappings(
 
     torch.distributed.barrier()
     counts = torch.LongTensor([1]).to(get_current_device())
-    if xm:
-        xm.all_reduce(xm.REDUCE_SUM, [counts], 
-                    groups=parallel_state.get_data_parallel_groups(with_context_parallel=True), 
-                    pin_layout=False)
-        xm.all_reduce(xm.REDUCE_SUM, [counts], 
-                    groups=parallel_state.get_pipeline_model_parallel_groups(), 
-                    pin_layout=False)
-    else:
-        torch.distributed.all_reduce(counts, group=parallel_state.get_data_parallel_group(with_context_parallel=True))
-        torch.distributed.all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
+    all_reduce(counts, group=parallel_state.get_data_parallel_group(with_context_parallel=True))
+    all_reduce(counts, group=parallel_state.get_pipeline_model_parallel_group())
     assert counts[0].item() == (
         torch.distributed.get_world_size()
         // torch.distributed.get_world_size(group=parallel_state.get_tensor_model_parallel_group())

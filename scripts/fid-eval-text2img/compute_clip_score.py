@@ -39,7 +39,7 @@ import csv
 import os
 from glob import glob
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import open_clip
 import torch
 import torch.nn as nn

@@ -16,7 +16,7 @@
 
 """Transformer."""
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 import torch
 
 from nemo.collections.nlp.modules.common.megatron.layer_type import LayerType

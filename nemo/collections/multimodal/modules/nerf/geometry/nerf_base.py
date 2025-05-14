@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Optional, Tuple
 
 import mcubes
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 import torch.nn as nn

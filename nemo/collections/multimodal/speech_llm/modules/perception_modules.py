@@ -15,7 +15,7 @@
 from collections import OrderedDict
 from typing import List, Optional, Tuple
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 import torch
 import torch.distributed
 import torch.nn as nn

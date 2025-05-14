@@ -24,7 +24,7 @@ from glob import glob
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import safetensors
 import tensorrt_llm

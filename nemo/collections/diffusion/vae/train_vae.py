@@ -15,7 +15,7 @@
 
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import nemo_run as run
 import torch
 import torch.distributed

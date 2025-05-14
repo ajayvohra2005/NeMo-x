@@ -14,7 +14,7 @@
 
 from typing import List, Optional, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.nn as nn
 from transformers import CLIPTextModel, CLIPTokenizer, T5EncoderModel, T5Tokenizer

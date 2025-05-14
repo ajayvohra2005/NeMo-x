@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from omegaconf import MISSING, OmegaConf
 from sklearn.model_selection import ParameterGrid

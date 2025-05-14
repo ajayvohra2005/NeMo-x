@@ -22,7 +22,7 @@ Requires HF transformers updated to support Siglip Models
 import os
 from argparse import ArgumentParser
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from omegaconf import OmegaConf
 from transformers import AutoModel, AutoProcessor

@@ -12,7 +12,7 @@
 from pathlib import Path
 from typing import Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 from huggingface_hub import get_token as get_hf_token

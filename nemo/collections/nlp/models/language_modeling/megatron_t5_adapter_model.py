@@ -20,7 +20,6 @@
 import itertools
 from typing import Any
 
-from nemo.utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf.dictconfig import DictConfig
@@ -44,10 +43,15 @@ from nemo.collections.nlp.modules.common.megatron.adapters.parallel_adapters imp
 )
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.mixins import adapter_mixins
-from nemo.utils import logging, model_utils, get_xla_model
+from nemo.utils import logging, model_utils
 
 try:
     from megatron.core import parallel_state
+    from megatron.core.device_utils import (
+        get_current_device, 
+        get_current_device_type,
+        get_xla_model
+    )
 
     HAVE_MEGATRON_CORE = True
 

@@ -14,7 +14,7 @@
 
 from typing import List, Optional, Tuple
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 
 import nemo.collections.nlp.modules.common.text_generation_strategy as text_generation_strategy

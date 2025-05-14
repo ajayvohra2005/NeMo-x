@@ -16,7 +16,7 @@ import os
 from argparse import ArgumentParser
 from collections import OrderedDict
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from omegaconf import open_dict
 from pytorch_lightning import Trainer

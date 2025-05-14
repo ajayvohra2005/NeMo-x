@@ -14,10 +14,9 @@
 from functools import partial
 from typing import Any, Optional
 
-from nemo.utils import get_current_device
+
 import torch
 from lightning.pytorch import Trainer
-from nemo.utils import get_current_device_type
 from omegaconf import DictConfig
 from torch._inductor import config as inductor_config
 
@@ -34,7 +33,7 @@ from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModel
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.common import Serialization
 from nemo.core.classes.mixins.adapter_mixins import AdapterModuleMixin
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
 
 try:
     from apex import amp
@@ -45,6 +44,8 @@ except (ImportError, ModuleNotFoundError):
     HAVE_APEX = False
 
 try:
+    from megatron.core.device_utils import get_current_device, get_current_device_type
+    from megatron.core.tensor_parallel.mappings import all_reduce
     from megatron.core import parallel_state
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
 
@@ -61,7 +62,6 @@ except (ImportError, ModuleNotFoundError):
     logging.warning("Megatron num_microbatches_calculator not found, using Apex version.")
     from apex.transformer.pipeline_parallel.utils import get_num_microbatches
 
-xm = get_xla_model()
 
 def disabled_train(self, mode=True):
     """Overwrite model.train with this function to make sure train/eval mode
@@ -450,13 +450,7 @@ class MegatronDreamBooth(NLPAdapterModelMixin, MegatronBaseModel):
 
         # to be summed across data parallel group
         total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
-
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
-                        groups=parallel_state.get_model_parallel_groups(), 
-                        pin_layout=False)
-        else:
-            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

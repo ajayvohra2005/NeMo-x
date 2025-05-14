@@ -18,7 +18,6 @@ from functools import partial
 from typing import Any, Dict, List, Optional, Union
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn as nn
@@ -29,7 +28,6 @@ from lightning.pytorch.core.saving import _load_state as ptl_load_state
 from lightning.pytorch.core.saving import load_hparams_from_tags_csv, load_hparams_from_yaml
 from lightning.pytorch.utilities.migration import pl_legacy_patch
 from lightning.pytorch.utilities.rank_zero import rank_zero_only
-from nemo.utils import get_current_device_type
 from omegaconf import DictConfig, open_dict
 from torch._inductor import config as inductor_config
 from torchvision.utils import make_grid
@@ -75,11 +73,14 @@ from nemo.collections.nlp.parts.peft_config import PEFT_CONFIG_MAP, PEFTConfig
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.common import Serialization
 from nemo.core.classes.mixins.adapter_mixins import AdapterModuleMixin
-from nemo.utils import logging, model_utils, get_xla_model
+from nemo.utils import logging, model_utils
+
 
 try:
     from megatron.core import parallel_state
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
+    from megatron.core.tensor_parallel.mappings import all_reduce
+    from megatron.core.device_utils import get_current_device, get_current_device_type
 
     HAVE_MEGATRON_CORE = True
 
@@ -96,8 +97,6 @@ except (ImportError, ModuleNotFoundError):
 
 
 __conditioning_keys__ = {'concat': 'c_concat', 'crossattn': 'c_crossattn', 'adm': 'y'}
-
-xm = get_xla_model()
 
 def random_dropout(embeddings, drop_rate):
     r"""
@@ -2008,12 +2007,7 @@ class MegatronLatentDiffusion(NLPAdapterModelMixin, MegatronBaseModel):
         # to be summed across data parallel group
         total_num_parameters = torch.tensor(num_parameters_on_device).to(get_current_device())
 
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
-                          groups=parallel_state.get_pipeline_model_parallel_groups(), 
-                          pin_layout=False)
-        else:
-            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

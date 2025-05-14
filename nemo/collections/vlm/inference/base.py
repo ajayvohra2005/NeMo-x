@@ -15,7 +15,7 @@
 from typing import List, Optional, Union
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.distributed
 from megatron.core.inference.common_inference_params import CommonInferenceParams

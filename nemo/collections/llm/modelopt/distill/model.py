@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple
 
 import torch
 from megatron.core import parallel_state
+from megatron.core.device_utils import get_current_device
+from megatron.core.tensor_parallel.mappings import all_reduce
 from torch import Tensor, nn
 
 from nemo.collections import llm
@@ -24,7 +26,6 @@ from nemo.collections.nlp.modules.common.megatron.utils import average_losses_ac
 from nemo.lightning.megatron_parallel import MaskedTokenLossReduction
 from nemo.utils.import_utils import safe_import
 from nemo.utils.model_utils import unwrap_model
-from nemo.utils import get_xla_model, get_current_device
 
 from .utils import (
     LoopingCachedDataIterator,
@@ -38,8 +39,6 @@ if TYPE_CHECKING:
     from nemo.lightning.pytorch.optim import OptimizerModule
 
 mtd, HAVE_MODELOPT = safe_import("modelopt.torch.distill")
-
-xm = get_xla_model()
 
 def gpt_distillation_data_step(dataloader_iter, attn_mask_cpu=False) -> Dict[str, Tensor]:
     """Same as base GPT's data step but with ability to move attention mask to CPU."""
@@ -121,22 +120,12 @@ class _DistillationLossReduction(MaskedTokenLossReduction):
             if num_valid_tokens_in_ub < 0.5:  # no valid tokens
                 num_valid_tokens_in_ub += 1.0
             loss = torch.sum(losses.view(-1) * loss_mask) / num_valid_tokens_in_ub  # sequence level nll
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [loss], 
-                          groups=parallel_state.get_context_parallel_groups(), 
-                          pin_layout=False)
-            else:
-                torch.distributed.all_reduce(loss, group=parallel_state.get_context_parallel_group())
+            all_reduce(loss, group=parallel_state.get_context_parallel_group())
         else:
             loss = torch.sum(losses.view(-1) * loss_mask) / loss_mask.sum()  # sequence level nll
 
         if tp_reduce is True:
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [loss], 
-                          groups=parallel_state.get_tensor_model_parallel_groups(), 
-                          pin_layout=False)
-            else:
-                torch.distributed.all_reduce(loss, group=parallel_state.get_tensor_model_parallel_group())
+            all_reduce(loss, group=parallel_state.get_tensor_model_parallel_group())
 
         return loss
 

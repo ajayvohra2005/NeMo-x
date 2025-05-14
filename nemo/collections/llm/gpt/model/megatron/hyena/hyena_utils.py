@@ -19,7 +19,7 @@ import math
 from functools import partial
 from typing import Literal
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 
 # CP related utils

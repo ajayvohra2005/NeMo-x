@@ -15,7 +15,6 @@
 import itertools
 from typing import Any, List
 
-from nemo.utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
 from omegaconf import OmegaConf
@@ -34,13 +33,17 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
 )
 from nemo.collections.nlp.parts.nlp_overrides import NLPSaveRestoreConnector
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import AppState, logging, get_xla_model
+from nemo.utils import AppState, logging
 
 try:
     from megatron.core import parallel_state
     from megatron.core.enums import ModelType
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
-
+    from megatron.core.device_utils import (
+        get_current_device, 
+        get_current_device_type,
+        get_xla_model
+    )
     HAVE_MEGATRON_CORE = True
 
 except (ImportError, ModuleNotFoundError):

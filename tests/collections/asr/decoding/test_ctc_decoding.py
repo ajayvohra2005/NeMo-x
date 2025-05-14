@@ -28,7 +28,7 @@ from nemo.collections.asr.parts.submodules.ctc_decoding import (
 )
 from nemo.collections.asr.parts.utils.asr_confidence_utils import ConfidenceConfig
 from nemo.collections.asr.parts.utils.rnnt_utils import Hypothesis
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 
 def char_vocabulary():
     return [' ', 'a', 'b', 'c', 'd', 'e', 'f', '.']

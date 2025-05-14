@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Generic, Optional, TypeVar, Union
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from lightning.fabric.plugins import CheckpointIO
 from lightning.fabric.utilities.cloud_io import get_filesystem

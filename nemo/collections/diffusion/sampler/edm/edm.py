@@ -15,7 +15,7 @@
 from statistics import NormalDist
 from typing import Callable, Tuple
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 from torch import nn

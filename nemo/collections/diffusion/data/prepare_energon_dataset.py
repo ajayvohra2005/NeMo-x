@@ -16,7 +16,7 @@ import os
 import pickle
 from typing import Callable
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import nemo_run as run
 import numpy as np
 import pandas as pd

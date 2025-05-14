@@ -50,8 +50,10 @@ from nemo.lightning import (
 from nemo.lightning.base import NEMO_MODELS_CACHE
 from nemo.lightning.ckpt_utils import ckpt_to_context_subdir
 from nemo.lightning.pytorch.callbacks import PEFT, JitTransform, ModelTransform
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
 from nemo.utils.get_rank import is_global_rank_zero
+
+from megatron.core.device_utils import get_xla_model
 
 xm = get_xla_model()
 

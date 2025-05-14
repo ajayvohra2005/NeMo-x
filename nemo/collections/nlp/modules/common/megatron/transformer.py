@@ -18,7 +18,7 @@ from contextlib import nullcontext
 from importlib.metadata import version
 from typing import Any, Callable, Optional
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 import packaging
 import torch
 import torch.nn as nn

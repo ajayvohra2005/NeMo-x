@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device, get_current_device_type
+from megatron.core.device_utils import get_current_device, get_current_device_type
 import numpy as np
 import pytest
 import torch

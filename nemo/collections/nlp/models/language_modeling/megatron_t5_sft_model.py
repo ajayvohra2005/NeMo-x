@@ -15,7 +15,6 @@ import itertools
 import json
 from typing import Dict, List
 
-from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.loops.fetchers import _DataFetcherWrapper
 from lightning.pytorch.trainer.trainer import Trainer
@@ -30,12 +29,13 @@ from nemo.collections.nlp.models.language_modeling.megatron_t5_model import Mega
 from nemo.collections.nlp.modules.common.megatron.utils import get_iterator_k_split
 from nemo.collections.nlp.parts.mixins.nlp_adapter_mixins import NLPAdapterModelMixin
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
-from nemo.utils import AppState, logging, get_xla_model
+from nemo.utils import AppState, logging
 
 try:
     from megatron.core import parallel_state
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
-
+    from megatron.core.device_utils import get_current_device, get_xla_model
+    
     HAVE_MEGATRON_CORE = True
 
 except (ImportError, ModuleNotFoundError):

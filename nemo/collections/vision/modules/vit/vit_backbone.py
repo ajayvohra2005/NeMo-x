@@ -18,7 +18,7 @@ import math
 from functools import partial
 
 import einops
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.nn.functional as F
 

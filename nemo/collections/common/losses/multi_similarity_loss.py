@@ -14,7 +14,7 @@
 
 from typing import Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 
 from nemo.core.classes import Loss

@@ -21,7 +21,7 @@ from pathlib import Path
 from types import MethodType
 from typing import Any, Dict, List, Sequence, Tuple, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 
 from nemo.utils.export_utils import add_casts_around_norms, replace_for_export

@@ -22,7 +22,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 custom_fwd = partial(torch.amp.custom_fwd, device_type=get_current_device_type())
 custom_bwd = partial(torch.amp.custom_bwd, device_type=get_current_device_type())
 

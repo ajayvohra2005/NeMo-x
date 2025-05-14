@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import _freqencoder as _backend
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.nn as nn
 from torch.autograd import Function
 from functools import partial
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 custom_fwd = partial(torch.amp.custom_fwd, device_type=get_current_device_type())
 custom_bwd = partial(torch.amp.custom_bwd, device_type=get_current_device_type())
 

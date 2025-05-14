@@ -20,13 +20,12 @@ from dataclasses import fields
 from functools import cache, partial
 from typing import Any, Optional
 
-from nemo.utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
 from lightning.pytorch.accelerators import CPUAccelerator
 from lightning.pytorch.trainer.trainer import Trainer
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 from omegaconf import OmegaConf
 from omegaconf.dictconfig import DictConfig
 from tqdm import tqdm
@@ -52,7 +51,7 @@ from nemo.collections.nlp.modules.common.megatron.utils import (
 from nemo.collections.nlp.parts.utils_funcs import activation_to_func, get_last_rank
 from nemo.collections.vision.modules.vit.vit_backbone import VitBackbone
 from nemo.core.classes.common import PretrainedModelInfo
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
 from nemo.utils.import_utils import safe_import, safe_import_from
 from nemo.utils.te_utils import te_version
 
@@ -92,6 +91,8 @@ try:
         init_method_normal,
         scaled_init_method_normal,
     )
+    from megatron.core.tensor_parallel.mappings import all_reduce
+    from megatron.core.device_utils import get_current_device
 
     HAVE_MEGATRON_CORE = True
 
@@ -109,8 +110,6 @@ except (ImportError, ModuleNotFoundError):
 _, HAVE_TE = safe_import("transformer_engine")
 te_module, _ = safe_import_from("transformer_engine.pytorch", "module")
 
-
-xm = get_xla_model()
 
 @cache
 def mcore_supports_moe() -> bool:
@@ -1163,12 +1162,7 @@ class MegatronCLIPModel(MegatronBaseModel):
             self._append_sequence_parallel_module_grads(self.model, grads)
 
         coalesced = torch._utils._flatten_dense_tensors(grads)
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [coalesced], 
-                          groups=parallel_state.get_tensor_model_parallel_groups(), 
-                          pin_layout=False)
-        else:
-            torch.distributed.all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
+        all_reduce(coalesced, group=parallel_state.get_tensor_model_parallel_group())
         for buf, synced in zip(grads, torch._utils._unflatten_dense_tensors(coalesced, grads)):
             buf.copy_(synced)
 
@@ -1377,12 +1371,7 @@ class MegatronCLIPModel(MegatronBaseModel):
         # to be summed across data parallel group
         total_num_parameters = torch.tensor(num_parameters_on_device).to(device=get_current_device())
 
-        if xm:
-            xm.all_reduce(xm.REDUCE_SUM, [total_num_parameters], 
-                          groups=parallel_state.get_model_parallel_groups(), 
-                          pin_layout=False)
-        else:
-            torch.distributed.all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
+        all_reduce(total_num_parameters, group=parallel_state.get_model_parallel_group())
 
         logging.info(
             f'Pipeline model parallel rank: {parallel_state.get_pipeline_model_parallel_rank()}, '

@@ -16,7 +16,7 @@
 from pathlib import Path
 from typing import Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import pytest
 import torch.cuda
 from examples.asr.transcribe_speech import TranscriptionConfig

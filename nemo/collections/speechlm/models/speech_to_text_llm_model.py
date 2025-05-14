@@ -21,7 +21,6 @@ from types import MethodType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
 import torch
 import torch.nn as nn
 from lightning.pytorch.utilities import rank_zero_only
@@ -37,6 +36,7 @@ from megatron.core.optimizer import OptimizerConfig
 from megatron.core.transformer import MegatronModule
 from megatron.core.transformer.enums import ModelType
 from megatron.core.transformer.transformer_config import TransformerConfig
+from megatron.core.device_utils import get_current_device, get_xla_model
 from omegaconf import DictConfig, ListConfig
 
 from nemo.collections.asr.models import ASRModel
@@ -67,7 +67,7 @@ from nemo.collections.speechlm.utils.text_generation.audio_text_generation_utils
 from nemo.lightning import io
 from nemo.lightning.io.pl import ckpt_to_weights_subdir
 from nemo.lightning.pytorch.optim import MegatronOptimizerModule, OptimizerModule
-from nemo.utils import AppState, logging, model_utils, get_xla_model
+from nemo.utils import AppState, logging, model_utils
 from nemo.utils.get_rank import get_last_rank
 
 xm = get_xla_model()

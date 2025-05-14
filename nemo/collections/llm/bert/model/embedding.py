@@ -28,7 +28,7 @@ from nemo.collections.llm.bert.model.base import get_batch_on_this_context_paral
 from nemo.collections.llm.bert.model.bert import HuggingFaceBertImporter
 from nemo.lightning import io
 from nemo.lightning.pytorch.optim import OptimizerModule
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 
 
 def bert_embedding_data_step(dataloder_iter) -> Dict[str, torch.Tensor]:

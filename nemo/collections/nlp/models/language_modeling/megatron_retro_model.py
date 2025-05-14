@@ -21,8 +21,6 @@ import warnings
 from dataclasses import fields
 from functools import partial
 from typing import Any, Dict, Iterator, List, Optional, Union
-
-from nemo.utils import get_current_device
 import torch
 from lightning.pytorch.accelerators import CPUAccelerator
 from lightning.pytorch.trainer.trainer import Trainer
@@ -66,10 +64,11 @@ from nemo.collections.nlp.parts.utils_funcs import activation_to_func, get_last_
 from nemo.core.classes import Exportable
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.neural_types import ChannelType, NeuralType
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
 from nemo.utils.import_utils import safe_import, safe_import_from
 
 try:
+    from megatron.core.tensor_parallel.mappings import all_reduce
     from megatron.core import InferenceParams, parallel_state
     from megatron.core.models.retro import RetroModel as MCoreRetroModel
     from megatron.core.models.retro.config import RetroConfig
@@ -81,6 +80,7 @@ try:
     from megatron.core.transformer.module import Float16Module as MCoreFloat16Module
     from megatron.core.transformer.transformer_config import TransformerConfig
     from megatron.core.utils import init_method_normal, scaled_init_method_normal
+    from megatron.core.device_utils import get_current_device
 
     # TODO @tmoon: Use once available in Megatron-LM
     # from megatron.core.pipeline_parallel.schedules import DataIteratorList
@@ -104,8 +104,6 @@ except (ImportError, ModuleNotFoundError):
 transformer_engine, HAVE_TE = safe_import("transformer_engine")
 te_module, HAVE_TE_MODULE = safe_import_from("transformer_engine.pytorch", "module")
 HAVE_TE = HAVE_TE and HAVE_TE_MODULE
-
-xm = get_xla_model()
 
 class MegatronRetroModel(MegatronGPTModel):
     """
@@ -336,12 +334,7 @@ class MegatronRetroModel(MegatronGPTModel):
                         ]
                     )
                     # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
-                    if xm:
-                        xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
-                                        groups=parallel_state.get_data_parallel_groups(), 
-                                        pin_layout=False)
-                    else:
-                        torch.distributed.all_reduce(
+                    all_reduce(
                             loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
                         )
                     return loss_for_ub, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}

@@ -20,7 +20,7 @@ from collections.abc import Iterable as IterableABC
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import braceexpand
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 import webdataset as wds

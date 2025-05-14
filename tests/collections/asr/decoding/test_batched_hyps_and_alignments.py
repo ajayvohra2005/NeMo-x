@@ -15,7 +15,7 @@
 from contextlib import contextmanager
 from typing import List
 
-from nemo.utils import get_xla_model, get_current_device
+from megatron.core.device_utils import get_xla_model, get_current_device
 import pytest
 import torch
 

@@ -14,12 +14,12 @@
 
 from typing import Dict, Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 
 
 def get_view_direction(thetas: torch.Tensor, phis: torch.Tensor, overhead: float, front: float) -> torch.Tensor:

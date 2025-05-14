@@ -32,7 +32,7 @@ from nemo.collections.asr.parts.utils.streaming_utils import FrameBatchASR, Fram
 from nemo.collections.common.metrics.punct_er import OccurancePunctuationErrorRate
 from nemo.collections.common.parts.preprocessing.manifest import get_full_path
 from nemo.utils import logging, model_utils
-from nemo.utils import get_accelerator_device_type
+from megatron.core.device_utils import get_accelerator_device_type
 
 
 def get_buffered_pred_feat_rnnt(

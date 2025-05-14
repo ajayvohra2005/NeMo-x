@@ -15,7 +15,7 @@
 import collections
 from typing import List, Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from lightning.pytorch import Trainer
 from omegaconf import DictConfig

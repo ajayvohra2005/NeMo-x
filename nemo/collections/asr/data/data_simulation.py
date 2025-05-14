@@ -17,7 +17,7 @@ import os
 import warnings
 from typing import Dict, List, Tuple
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import soundfile as sf
 import torch

@@ -16,7 +16,7 @@
 import random
 
 import megatron.core.parallel_state as ps
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.distributed as dist
 from megatron.core.models.mamba.mamba_model import MambaModel

@@ -14,7 +14,6 @@
 
 from typing import Dict, List, Literal, Tuple
 
-from nemo.utils import get_current_device
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -22,9 +21,8 @@ from torch.distributed import all_gather as all_gather_no_backprop
 from torch.distributed.nn.functional import all_gather as all_gather_with_backprop
 
 from nemo.lightning.megatron_parallel import MaskedTokenLossReduction, MegatronLossReduction
-from nemo.utils import get_xla_model
-
-xm = get_xla_model()
+from megatron.core.device_utils import get_current_device
+from megatron.core.tensor_parallel.mappings import all_reduce
 
 class BERTLossReduction(MegatronLossReduction):
     """Bert Loss Function.
@@ -331,13 +329,7 @@ def average_losses_across_data_parallel_group(losses):
     from megatron.core import parallel_state
 
     averaged_losses = torch.cat([loss.clone().detach().view(1) for loss in losses])
-    if xm:
-        xm.all_reduce(
-            xm.REDUCE_SUM, [averaged_losses], 
-            groups=parallel_state.get_data_parallel_groups(), pin_layout=False
-        )
-    else:
-        torch.distributed.all_reduce(averaged_losses, group=parallel_state.get_data_parallel_group())
+    all_reduce(averaged_losses, group=parallel_state.get_data_parallel_group())
     averaged_losses = averaged_losses / torch.distributed.get_world_size(
         group=parallel_state.get_data_parallel_group()
     )

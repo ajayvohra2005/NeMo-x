@@ -26,7 +26,7 @@ from typing import Any, Iterator, Literal, Optional, Set, TypeVar
 
 import lightning.pytorch as pl
 import megatron.core.num_microbatches_calculator
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import pytest
 import torch
 import torch.distributed

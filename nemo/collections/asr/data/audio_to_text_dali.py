@@ -19,7 +19,7 @@ import time
 from collections.abc import Iterator
 from typing import Callable, List, Optional, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from omegaconf import DictConfig
 

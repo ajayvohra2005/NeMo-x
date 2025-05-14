@@ -22,7 +22,7 @@ from pathlib import Path
 from statistics import mode
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from nemo.utils import get_current_device, get_current_device_type
+from megatron.core.device_utils import get_current_device, get_current_device_type
 import numpy as np
 import torch
 from hydra.utils import instantiate

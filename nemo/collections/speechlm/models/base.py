@@ -17,7 +17,7 @@ import uuid
 from typing import Dict, List, Optional
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.nn as nn
 from lightning.pytorch.utilities import model_summary

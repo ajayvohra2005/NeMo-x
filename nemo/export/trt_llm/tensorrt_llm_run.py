@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import tensorrt as trt
 import tensorrt_llm

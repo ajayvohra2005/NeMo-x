@@ -38,7 +38,7 @@ from types import MethodType
 from typing import Any, Dict
 
 import lightning.pytorch as pl
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from lightning.pytorch import LightningModule
 from lightning.pytorch.callbacks import Callback

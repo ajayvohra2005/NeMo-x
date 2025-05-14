@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from hydra.utils import instantiate
 from lightning.pytorch import Trainer

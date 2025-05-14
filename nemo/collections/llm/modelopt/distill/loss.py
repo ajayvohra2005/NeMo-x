@@ -18,15 +18,13 @@ from typing import TYPE_CHECKING, Tuple
 import torch
 import torch.nn.functional as F
 from megatron.core import parallel_state
-from megatron.core.process_groups_config import WrappedProcessGroup 
+from megatron.core.tensor_parallel.mappings import all_reduce
 from torch import Tensor
 from torch.nn.modules.loss import _Loss
-from nemo.utils import get_xla_model
+
 
 if TYPE_CHECKING:
     from megatron.core.transformer.transformer_config import TransformerConfig
-
-xm = get_xla_model()
 
 class BaseLoss(_Loss, metaclass=ABCMeta):
     """Abstract base class for Megatron distillation losses."""
@@ -91,16 +89,11 @@ class LogitsKLLoss(BaseLoss):
         if self._config.tensor_model_parallel_size > 1:
             # Maximum value along vocab dimension across all GPUs.
             teacher_logits_max, _ = torch.max(output_teacher, dim=-1)
-            if xm:
-                xm.all_reduce(xm.REDUCE_MAX, [teacher_logits_max], 
-                              groups=parallel_state.get_tensor_model_parallel_groups(), 
-                              pin_layout=False)
-            else:
-                torch.distributed.all_reduce(
-                    teacher_logits_max,
-                    op=torch.distributed.ReduceOp.MAX,
-                    group=parallel_state.get_tensor_model_parallel_group(),
-                )
+            all_reduce(
+                teacher_logits_max,
+                op=torch.distributed.ReduceOp.MAX,
+                group=parallel_state.get_tensor_model_parallel_group(),
+            )
             output_teacher = output_teacher - teacher_logits_max.unsqueeze(dim=-1)
 
             denom_teacher = torch.sum(torch.exp(output_teacher), dim=-1)
@@ -112,16 +105,11 @@ class LogitsKLLoss(BaseLoss):
 
             # Maximum value along vocab dimension across all GPUs.
             student_logits_max, _ = torch.max(output_student, dim=-1)
-            if xm:
-                xm.all_reduce(xm.REDUCE_MAX, [student_logits_max], 
-                              groups=parallel_state.get_tensor_model_parallel_groups(), 
-                              pin_layout=False)
-            else:
-                torch.distributed.all_reduce(
-                    student_logits_max,
-                    op=torch.distributed.ReduceOp.MAX,
-                    group=parallel_state.get_tensor_model_parallel_group(),
-                )
+            all_reduce(
+                student_logits_max,
+                op=torch.distributed.ReduceOp.MAX,
+                group=parallel_state.get_tensor_model_parallel_group(),
+            )
             output_student = output_student - student_logits_max.unsqueeze(dim=-1).detach()
 
             denom_student = torch.sum(torch.exp(output_student), dim=-1)
@@ -177,10 +165,7 @@ class _AllReduce(torch.autograd.Function):
         # pylint: disable=C0116
         ctx.group, ctx.op = group, op
         tensor = tensor.clone()
-        if xm:
-            xm.all_reduce(op, [tensor], groups=group.rank_groups, pin_layout=False)
-        else:
-            torch.distributed.all_reduce(tensor, op=op, group=group.process_group)
+        all_reduce(tensor, op=op, group=group.process_group)
         return tensor
 
     @staticmethod

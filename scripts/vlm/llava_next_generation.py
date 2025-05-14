@@ -15,7 +15,7 @@
 import argparse
 
 import requests
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from PIL import Image
 from transformers import AutoProcessor

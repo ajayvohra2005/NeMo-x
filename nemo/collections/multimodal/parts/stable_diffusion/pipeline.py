@@ -17,7 +17,7 @@ import time
 from collections import defaultdict
 from itertools import chain
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from PIL import Image
 
@@ -26,7 +26,7 @@ from nemo.collections.multimodal.models.text_to_image.stable_diffusion.samplers.
 from nemo.collections.multimodal.models.text_to_image.stable_diffusion.samplers.plms import PLMSSampler
 from nemo.collections.multimodal.models.text_to_image.stable_diffusion.samplers.sampler_dpm import DPMSolverSampler
 from nemo.collections.multimodal.parts.stable_diffusion.utils import DataParallelWrapper
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 
 
 def encode_prompt(cond_stage_model, prompts, unconditional_guidance_scale):

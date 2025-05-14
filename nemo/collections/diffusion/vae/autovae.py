@@ -16,7 +16,7 @@ import itertools
 import time
 from typing import Dict, List
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.profiler
 from diffusers import AutoencoderKL

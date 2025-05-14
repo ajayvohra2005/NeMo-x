@@ -15,7 +15,7 @@
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Dict, Optional
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import packaging
 import torch
 import torch.nn.functional as F

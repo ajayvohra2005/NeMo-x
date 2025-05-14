@@ -26,17 +26,6 @@ from nemo.utils.cast_utils import (
 from nemo.utils.dtype import str_to_dtype
 from nemo.utils.nemo_logging import Logger as _Logger
 from nemo.utils.nemo_logging import LogMode as logging_mode
-from nemo.utils import (
-    get_xla_runtime,
-    get_xla_model,
-    get_current_device,
-    get_current_device_type,
-    get_distributed_backend,
-    get_distributed_init_method,
-    get_local_device_count,
-    get_accelerator_device,
-    get_accelerator_device_type
-)
 logging = _Logger()
 try:
     from nemo.utils.lightning_logger_patch import add_memory_handlers_to_pl_logger

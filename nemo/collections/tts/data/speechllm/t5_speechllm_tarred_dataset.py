@@ -18,7 +18,7 @@ import random
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 import webdataset as wd

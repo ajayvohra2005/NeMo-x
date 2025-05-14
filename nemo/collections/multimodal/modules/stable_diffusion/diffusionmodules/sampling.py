@@ -18,7 +18,7 @@
 
 from typing import Dict, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from omegaconf import ListConfig, OmegaConf
 from tqdm import tqdm

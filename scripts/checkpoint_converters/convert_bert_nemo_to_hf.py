@@ -24,7 +24,7 @@ Example to run this conversion script:
 
 from argparse import ArgumentParser
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.nn.functional as F
 from lightning.pytorch import Trainer

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import pytest
 import torch

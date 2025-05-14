@@ -14,7 +14,7 @@
 import torch
 import torch.nn as nn
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 
 
 class LaplacianSmoothLoss(nn.Module):

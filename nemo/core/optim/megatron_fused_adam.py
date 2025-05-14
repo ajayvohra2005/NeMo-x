@@ -16,7 +16,7 @@ import amp_C
 import torch
 
 from nemo.utils.model_utils import param_is_not_shared
-from nemo.utils import get_xla_model
+from megatron.core.device_utils import get_xla_model
 
 try:
     from megatron.core import parallel_state

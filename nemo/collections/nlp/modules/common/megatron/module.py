@@ -19,9 +19,11 @@ from torch.autograd import Variable
 from torch.nn.parameter import Parameter
 from nemo.collections.nlp.modules.common.megatron.utils import ApexGuardDefaults
 
-from nemo.utils import logging, get_xla_model
+from nemo.utils import logging
+
 
 try:
+    from megatron.core.tensor_parallel.mappings import all_reduce
     from megatron.core import ModelParallelConfig, parallel_state, tensor_parallel
 
     HAVE_MEGATRON_CORE = True
@@ -37,7 +39,6 @@ _FLOAT_TYPES = (torch.FloatTensor, torch.cuda.FloatTensor)
 _HALF_TYPES = (torch.HalfTensor, torch.cuda.HalfTensor)
 _BF16_TYPES = (torch.BFloat16Tensor, torch.cuda.BFloat16Tensor)
 
-xm = get_xla_model()
 
 class MegatronModule(torch.nn.Module):
     """Megatron specific extensions of torch Module with support
@@ -165,12 +166,7 @@ class MegatronModule(torch.nn.Module):
 
         if torch.distributed.is_initialized():
             if parallel_state.is_rank_in_embedding_group() and self.share_token_embeddings:
-                if xm:
-                    xm.all_reduce(xm.REDUCE_SUM, [self.word_embeddings_weight()], 
-                                    groups=parallel_state.get_embedding_groups(), 
-                                    pin_layout=False)
-                else:
-                    torch.distributed.all_reduce(
+                all_reduce(
                         self.word_embeddings_weight().data, group=parallel_state.get_embedding_group()
                     )
         else:
@@ -193,12 +189,7 @@ class MegatronModule(torch.nn.Module):
             # TODO: Support tokentype embedding.
             # self.language_model.embedding.to(device=get_current_device())
             position_embeddings = self.position_embeddings_weight()
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings], 
-                                groups=parallel_state.get_embedding_groups(), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(position_embeddings.data, group=parallel_state.get_position_embedding_group())
+            all_reduce(position_embeddings.data, group=parallel_state.get_position_embedding_group())
 
     def state_dict_for_save_checkpoint(self, destination=None, prefix='', keep_vars=False):
         """Use this function to override the state dict for
@@ -209,36 +200,21 @@ class MegatronModule(torch.nn.Module):
         # Ensure that all encoder RPE stages have the same weights.
         if parallel_state.is_rank_in_encoder_relative_position_embedding_group():
             position_embeddings = self.encoder_relative_position_embeddings_weight()
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings], 
-                                groups=parallel_state.get_encoder_relative_position_embedding_groups(), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(
+            all_reduce(
                     position_embeddings.data, group=parallel_state.get_encoder_relative_position_embedding_group()
                 )
 
     def sync_initial_decoder_relative_position_embeddings(self):
         if parallel_state.is_rank_in_decoder_relative_position_embedding_group():
             position_embeddings = self.decoder_relative_position_embeddings_weight()
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings], 
-                                groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(
+            all_reduce(
                     position_embeddings.data, group=parallel_state.get_decoder_relative_position_embedding_group()
                 )
 
     def sync_initial_decoder_cross_attention_relative_position_embeddings(self):
         if parallel_state.is_rank_in_decoder_relative_position_embedding_group():
             position_embeddings = self.decoder_cross_attention_relative_position_embeddings_weight()
-            if xm:
-                xm.all_reduce(xm.REDUCE_SUM, [position_embeddings], 
-                                groups=parallel_state.get_decoder_relative_position_embedding_groups(), 
-                                pin_layout=False)
-            else:
-                torch.distributed.all_reduce(
+            all_reduce(
                     position_embeddings.data, group=parallel_state.get_decoder_relative_position_embedding_group()
                 )
 

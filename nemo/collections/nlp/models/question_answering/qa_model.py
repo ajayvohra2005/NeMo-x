@@ -15,7 +15,7 @@
 import json
 from typing import Optional
 
-from nemo.utils import get_current_device, get_current_device_type
+from megatron.core.device_utils import get_current_device, get_current_device_type
 import torch
 from lightning.pytorch import Trainers
 from omegaconf import DictConfig, OmegaConf

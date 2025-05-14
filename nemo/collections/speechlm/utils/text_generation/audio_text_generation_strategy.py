@@ -16,7 +16,7 @@ import warnings
 from abc import abstractmethod
 from typing import Dict, List, Optional, Set, Tuple
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import pytorch_lightning as pl
 import torch
 from megatron.core import InferenceParams, parallel_state

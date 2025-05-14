@@ -22,7 +22,7 @@ from collections import OrderedDict
 from typing import Tuple
 
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import pytest
 import torch
 from megatron.core.datasets.megatron_tokenizer import MegatronTokenizer

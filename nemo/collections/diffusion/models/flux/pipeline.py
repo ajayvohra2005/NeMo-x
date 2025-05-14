@@ -15,7 +15,7 @@
 import os
 from typing import List, Optional, Union
 
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 import numpy as np
 import torch
 from PIL import Image

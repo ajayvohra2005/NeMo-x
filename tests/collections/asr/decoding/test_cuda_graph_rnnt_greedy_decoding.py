@@ -15,10 +15,10 @@ import copy
 import glob
 
 import jiwer
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import pytest
 import torch
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 from omegaconf import open_dict
 
 from nemo.collections.asr.models import ASRModel

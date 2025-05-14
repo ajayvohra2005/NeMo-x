@@ -23,7 +23,7 @@ from megatron.core.inference.model_inference_wrappers.abstract_model_inference_w
 from megatron.core.inference.model_inference_wrappers.inference_wrapper_config import InferenceWrapperConfig
 from megatron.core.inference_params import InferenceParams
 from torch.utils.data import default_collate
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 
 from nemo.collections.vlm.mllama.model.utils import create_vision_mask_tensor
 

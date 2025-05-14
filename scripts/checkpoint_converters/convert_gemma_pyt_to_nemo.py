@@ -26,7 +26,7 @@ import contextlib
 import os
 from argparse import ArgumentParser
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from gemma.config import get_config_for_2b, get_config_for_7b
 from gemma.model import CausalLM

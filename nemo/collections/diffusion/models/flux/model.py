@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 import lightning.pytorch as L
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 from megatron.core.dist_checkpointing.mapping import ShardedStateDict

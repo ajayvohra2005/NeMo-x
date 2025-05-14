@@ -21,7 +21,7 @@ from pathlib import Path
 from time import time
 from typing import List
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import tensorrt as trt
 import torch
 import yaml

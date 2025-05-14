@@ -19,7 +19,6 @@ import os
 from functools import partial
 from typing import Any, Optional, Union
 
-from nemo.utils import get_current_device
 import sacrebleu
 import torch
 from lightning.pytorch.trainer.trainer import Trainer
@@ -51,11 +50,13 @@ from nemo.collections.nlp.parts.nlp_overrides import NLPSaveRestoreConnector
 from nemo.collections.nlp.parts.utils_funcs import get_last_rank
 from nemo.core.classes.mixins import adapter_mixins
 from nemo.core.neural_types import AudioSignal, LabelsType, LengthsType, MaskType, NeuralType
-from nemo.utils import AppState, logging, model_utils, get_xla_model
+from nemo.utils import AppState, logging, model_utils
 
 try:
     from megatron.core import parallel_state, tensor_parallel
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
+    from megatron.core.tensor_parallel.mappings import all_reduce
+    from megatron.core.device_utils import get_current_device
 
     HAVE_MEGATRON_CORE = True
 
@@ -86,8 +87,6 @@ __all__ = ["ModularizedAudioT5Model", "DecoderTextPromptModularizedAudioT5Model"
 
 
 default_inference_config = {'tokens_to_generate': 30}
-
-xm = get_xla_model()
 
 class ModularizedAudioT5Model(MegatronT5LoraModel):
     """Modularized speech GPT model."""
@@ -519,12 +518,7 @@ class ModularizedAudioT5Model(MegatronT5LoraModel):
                         ]
                     )
                     # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
-                    if xm:
-                        xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
-                                    groups=parallel_state.get_data_parallel_groups(), 
-                                    pin_layout=False)
-                    else:
-                        torch.distributed.all_reduce(
+                    all_reduce(
                             loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
                         )
                     return loss_for_ub, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}

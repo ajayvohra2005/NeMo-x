@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, Literal, Optional, Union
 
 import lightning.pytorch as L
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.distributed
 from megatron.core import InferenceParams, parallel_state, tensor_parallel

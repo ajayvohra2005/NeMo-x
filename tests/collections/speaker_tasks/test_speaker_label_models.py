@@ -17,7 +17,7 @@ import os
 import tempfile
 from unittest import TestCase
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import pytest
 import torch
 from omegaconf import DictConfig

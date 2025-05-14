@@ -18,7 +18,7 @@ import multiprocessing
 from collections import defaultdict
 from pathlib import Path
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from tensorrt_llm._utils import pad_vocab_size, str_dtype_to_torch
 from tqdm import tqdm

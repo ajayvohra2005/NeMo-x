@@ -16,13 +16,13 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
 import lightning.pytorch as L
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 import torch.distributed
 import torch.nn.functional as F
 from megatron.core.enums import ModelType
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 
 try:
     from megatron.core.extensions.transformer_engine import TENorm

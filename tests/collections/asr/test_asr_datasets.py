@@ -19,7 +19,7 @@ import shutil
 import tempfile
 from unittest import mock
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import pytest
 import soundfile as sf

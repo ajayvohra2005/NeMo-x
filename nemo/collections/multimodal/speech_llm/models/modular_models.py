@@ -19,7 +19,6 @@ from functools import partial
 from typing import List, Optional, Union
 
 import hydra
-from nemo.utils import get_current_device
 import sacrebleu
 import torch
 from hydra.utils import get_class
@@ -59,13 +58,15 @@ from nemo.core.classes import ModelPT
 from nemo.core.classes.common import PretrainedModelInfo
 from nemo.core.classes.mixins import adapter_mixins
 from nemo.core.neural_types import AudioSignal, LabelsType, LengthsType, MaskType, NeuralType
-from nemo.utils import AppState, logging, model_utils, get_xla_model
+from nemo.utils import AppState, logging, model_utils
 from nemo.utils.model_utils import inject_model_parallel_rank
 
 try:
     from megatron.core import InferenceParams, parallel_state, tensor_parallel
     from megatron.core.models.gpt import GPTModel as MCoreGPTModel
     from megatron.core.pipeline_parallel.schedules import get_forward_backward_func
+    from megatron.core.tensor_parallel.mappings import all_reduce
+    from megatron.core.device_utils import get_current_device
 
     HAVE_MEGATRON_CORE = True
 
@@ -88,7 +89,6 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ["ModularAudioGPTModel", "CrossAttendModularAudioGPTModel"]
 
-xm = get_xla_model()
 default_inference_config = {'tokens_to_generate': 30}
 
 
@@ -714,12 +714,7 @@ class ModularAudioGPTModel(SpeechLLMAdapterMixin, MegatronGPTSFTModel):
                         ]
                     )
                     # Could potentially reduce num_valid_samples_in_microbatch and use that to aggregate instead of len(self._validation_ds)
-                    if xm:
-                        xm.all_reduce(xm.REDUCE_SUM, [loss_sum_and_ub_size_all_gpu], 
-                                    groups=parallel_state.get_data_parallel_groups(), 
-                                    pin_layout=False)
-                    else:
-                        torch.distributed.all_reduce(
+                    all_reduce(
                             loss_sum_and_ub_size_all_gpu, group=parallel_state.get_data_parallel_group()
                         )
                     return loss_for_ub * cp_size, {'loss_sum_and_ub_size': loss_sum_and_ub_size_all_gpu}

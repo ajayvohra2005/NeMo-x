@@ -23,7 +23,7 @@ Requires HF transformers updated to support Gemma Models
 import os
 from argparse import ArgumentParser
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 from omegaconf import OmegaConf
 from transformers import AutoModelForCausalLM, AutoTokenizer

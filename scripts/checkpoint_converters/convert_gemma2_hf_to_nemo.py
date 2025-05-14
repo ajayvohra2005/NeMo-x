@@ -31,7 +31,7 @@ If you encounter a torch.cuda.OutOfMemoryError, try converting on CPU with --cpu
 import os
 from argparse import ArgumentParser
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 
 from megatron.core import parallel_state

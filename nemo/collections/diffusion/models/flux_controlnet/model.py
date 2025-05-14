@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 import torch.nn as nn
 from megatron.core.models.common.vision_module.vision_module import VisionModule
@@ -34,7 +34,7 @@ from nemo.collections.diffusion.models.flux.model import FluxConfig, FluxModelPa
 from nemo.collections.diffusion.models.flux_controlnet.layers import ControlNetConditioningEmbedding
 from nemo.lightning import io
 from nemo.utils import logging
-from nemo.utils import get_current_device_type
+from megatron.core.device_utils import get_current_device_type
 
 
 def zero_module(module):

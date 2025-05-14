@@ -19,7 +19,7 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Union
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import torch
 
 from nemo.collections.asr.parts.k2.classes import GraphIntersectDenseConfig

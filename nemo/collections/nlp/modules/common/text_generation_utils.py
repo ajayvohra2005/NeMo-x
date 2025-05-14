@@ -21,7 +21,7 @@ from collections.abc import Iterable
 from functools import partial
 from typing import Callable, Tuple
 
-from nemo.utils import get_current_device
+from megatron.core.device_utils import get_current_device
 import numpy as np
 import torch
 import torch.nn.functional as F
