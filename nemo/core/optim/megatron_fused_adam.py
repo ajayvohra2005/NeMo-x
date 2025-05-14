@@ -16,13 +16,14 @@ import amp_C
 import torch
 
 from nemo.utils.model_utils import param_is_not_shared
-from megatron.core.device_utils import get_xla_model
 
 try:
     from megatron.core import parallel_state
     from megatron.core.tensor_parallel.layers import param_is_not_tensor_parallel_duplicate
-
+    from megatron.core.device_utils import get_xla_model
+    
     HAVE_MEGATRON_CORE = True
+    xm = get_xla_model()
 
 except (ImportError, ModuleNotFoundError):
 
@@ -36,8 +37,6 @@ try:
 
 except ModuleNotFoundError:
     HAVE_APEX = False
-
-xm = get_xla_model()
 
 class MegatronFusedAdam(FusedAdam):
     """Wrapper class that supports NeMo-Megatron optimizations

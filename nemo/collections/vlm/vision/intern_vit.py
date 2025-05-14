@@ -29,7 +29,6 @@ try:
     )
 except ImportError:
     from nemo.utils import logging
-from megatron.core.device_utils import get_xla_model
 
     # These Defaults are needed to make sure the code compiles
     TEColumnParallelLinear = None
@@ -43,9 +42,9 @@ from megatron.core.device_utils import get_xla_model
         "If using NeMo Run, this is expected. Otherwise, please verify the Transformer Engine installation."
     )
 
+from megatron.core.device_utils import get_xla_model
 from megatron.core.parallel_state import (
     get_tensor_model_parallel_group,
-    get_tensor_model_parallel_groups,
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_world_size,
 )
@@ -58,6 +57,7 @@ from megatron.core.transformer.mlp import MLP, MLPSubmodules
 from megatron.core.transformer.spec_utils import ModuleSpec, build_module
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.transformer.transformer_layer import TransformerLayer, TransformerLayerSubmodules
+from megatron.core.wrapped_process_group import WrappedProcessGroup
 
 from nemo.collections.vlm.vision.base import CLIPViTConfig
 from nemo.lightning import io, teardown
@@ -151,8 +151,9 @@ class InternViTRMSNorm(torch.nn.Module):
             var = input_.sum(-1, keepdim=True) * 0.0  # Zero-out the dummy heads.
 
         if xm:
+            wpg = WrappedProcessGroup(process_group=get_tensor_model_parallel_group())
             output = xm.all_gather(var, dim=last_dim, 
-                                   groups=get_tensor_model_parallel_groups(), 
+                                   groups=wpg.rank_groups, 
                                    pin_layout=False)
         else:
             tensor_list = [torch.empty_like(var) for _ in range(world_size)]

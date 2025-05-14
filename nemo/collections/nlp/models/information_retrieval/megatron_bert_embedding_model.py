@@ -52,6 +52,7 @@ try:
     from megatron.core.device_utils import get_xla_model, get_current_device
 
     HAVE_MEGATRON_CORE = True
+    xm = get_xla_model()
 
 except (ImportError, ModuleNotFoundError):
     TransformerConfig = ApexGuardDefaults
@@ -66,8 +67,6 @@ except (ImportError, ModuleNotFoundError):
     logging.warning("Megatron num_microbatches_calculator not found, using Apex version.")
     from apex.transformer.pipeline_parallel.utils import get_num_microbatches
 
-
-xm = get_xla_model()
 
 def listify(tensor):
     l_tensor = []

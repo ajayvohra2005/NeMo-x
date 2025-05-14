@@ -37,6 +37,7 @@ try:
     from megatron.core.device_utils import get_current_device, get_xla_model
     
     HAVE_MEGATRON_CORE = True
+    xm = get_xla_model()
 
 except (ImportError, ModuleNotFoundError):
 
@@ -62,8 +63,6 @@ except (ImportError, ModuleNotFoundError):
     )
 
 __all__ = ['MegatronT5SFTModel']
-
-xm = get_xla_model()
 
 class MegatronT5SFTModel(NLPAdapterModelMixin, MegatronT5Model):
     """T5 Finetuning model in the same format as MegatronGPTSFTModel"""

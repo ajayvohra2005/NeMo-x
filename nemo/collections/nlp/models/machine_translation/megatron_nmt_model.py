@@ -57,6 +57,7 @@ try:
     from megatron.core.device_utils import get_xla_model
     
     HAVE_MEGATRON_CORE = True
+    xm = get_xla_model()
 
 except (ImportError, ModuleNotFoundError):
 
@@ -78,7 +79,6 @@ except (ImportError, ModuleNotFoundError):
 
 
 __all__ = ["MegatronNMTModel"]
-xm = get_xla_model()
 
 class MultilingualModelType(enum.Enum):
     one_to_many = 1

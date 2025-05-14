@@ -54,11 +54,10 @@ try:
     )
 
     HAVE_MEGATRON_CORE = True
+    xm = get_xla_model()
 
 except (ImportError, ModuleNotFoundError):
     HAVE_MEGATRON_CORE = False
-
-xm = get_xla_model()
 
 class MegatronT5BaseAdapterModel(MegatronT5PromptLearningModel):
     def __init__(self, cfg: DictConfig, trainer: Trainer):

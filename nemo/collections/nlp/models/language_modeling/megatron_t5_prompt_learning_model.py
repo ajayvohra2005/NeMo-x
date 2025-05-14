@@ -45,6 +45,7 @@ try:
         get_xla_model
     )
     HAVE_MEGATRON_CORE = True
+    xm = get_xla_model()
 
 except (ImportError, ModuleNotFoundError):
 
@@ -61,7 +62,6 @@ except (ImportError, ModuleNotFoundError):
 
 __all__ = ['MegatronT5PromptLearningModel']
 
-xm = get_xla_model()
 
 class MegatronT5PromptLearningModel(MegatronBasePromptLearningModel):
     """

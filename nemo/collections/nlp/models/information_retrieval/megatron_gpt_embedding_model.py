@@ -31,8 +31,11 @@ from nemo.utils import logging
 try:
     from megatron.core.tensor_parallel.mappings import all_reduce
     from megatron.core import parallel_state
+    from megatron.core.device_utils import get_xla_model
+    from megatron.core.wrapped_process_group import WrappedProcessGroup
 
     HAVE_MEGATRON_CORE = True
+    xm = get_xla_model()
 
 except (ImportError, ModuleNotFoundError):
 
@@ -50,8 +53,9 @@ def listify(tensor):
 def _gather_global_inbatch_representations(local_eos_tensor):
     local_eos_tensor = local_eos_tensor.contiguous()
     if xm:
+        wpg = WrappedProcessGroup(process_group=parallel_state.get_data_parallel_group())
         global_eos_tensors = xm.all_gather(local_eos_tensor, dim=0, 
-                                           groups=parallel_state.get_data_parallel_groups(), 
+                                           groups=wpg.rank_groups, 
                                            pin_layout=False)
     else:
         global_eos_tensors = [

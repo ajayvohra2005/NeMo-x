@@ -15,11 +15,12 @@
 from contextlib import contextmanager
 from typing import List
 
-from megatron.core.device_utils import get_xla_model, get_current_device
 import pytest
 import torch
 
 from nemo.collections.asr.parts.utils.rnnt_utils import BatchedAlignments, BatchedHyps, batched_hyps_to_hypotheses
+
+from megatron.core.device_utils import get_xla_model, get_current_device
 
 xm = get_xla_model()
 
