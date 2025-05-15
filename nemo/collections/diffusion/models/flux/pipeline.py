@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -151,7 +151,10 @@ class FluxInferencePipeline(nn.Module):
         )
         self.t5_encoder = (
             FrozenT5Embedder(
-                params.t5_params.version, max_length=params.t5_params.max_length, device=params.t5_params.device
+                params.t5_params.version,
+                max_length=params.t5_params.max_length,
+                device=params.t5_params.device,
+                load_config_only=params.t5_params.load_config_only,
             )
             if t5 is None
             else t5
@@ -383,8 +386,8 @@ class FluxInferencePipeline(nn.Module):
             width (int): The width of the image to be generated (before scaling).
             dtype (torch.dtype): The data type to use for the latents (e.g., `torch.float32`).
             device (torch.device): The device on which the latents will reside (e.g., 'cuda').
-            generator (Union[torch.Generator, List[torch.Generator]]): A random number generator or a list of generators
-                for generating random latents. If a list is provided, its length must match the batch size.
+            generator (Union[torch.Generator, List[torch.Generator]]): A random number generator or a list of
+                generatorsfor generating random latents. If a list is provided, its length must match the batch size.
             latents (Optional[torch.FloatTensor]): An optional pre-existing latent tensor. If provided, it is used
                 instead of generating new latents.
 
@@ -415,7 +418,9 @@ class FluxInferencePipeline(nn.Module):
                 f" size of {batch_size}. Make sure the batch size matches the length of the generators."
             )
 
-        latents = FluxInferencePipeline._generate_rand_latents(shape, generator=generator, device=device, dtype=dtype)
+        latents = FluxInferencePipeline._generate_rand_latents(
+            shape, generator=generator, device=device, dtype=dtype, batch_size=batch_size
+        )
         latents = self._pack_latents(latents, batch_size, num_channels_latents, height, width)
 
         latent_image_ids = self._prepare_latent_image_ids(batch_size, height, width, device, dtype)
@@ -428,6 +433,7 @@ class FluxInferencePipeline(nn.Module):
         generator,
         device,
         dtype,
+        batch_size,
     ):
         '''
         Create random latents using a random generator or a list of generators.
@@ -435,8 +441,7 @@ class FluxInferencePipeline(nn.Module):
         if isinstance(generator, list):
             shape = (1,) + shape[1:]
             latents = [
-                torch.randn(shape, generator=generator[i], device=device, dtype=dtype, layout=layout)
-                for i in range(batch_size)
+                torch.randn(shape, generator=generator[i], device=device, dtype=dtype) for i in range(batch_size)
             ]
             latents = torch.cat(latents, dim=0).to(device=device)
         else:
@@ -488,14 +493,17 @@ class FluxInferencePipeline(nn.Module):
         dtype: torch.dtype = torch.float32,
         save_to_disk: bool = True,
         offload: bool = False,
+        output_path: str = None,
     ):
         """
-        Generates images based on a given text prompt and various model parameters. Optionally saves the images to disk.
+        Generates images based on a given text prompt and various model parameters.
+        Optionally saves the images to disk.
 
-        This method orchestrates the process of generating images by embedding the prompt, preparing the latent vectors,
-        iterating through timesteps in the diffusion process, and then decoding the latent representation back into
-        an image. It supports both the generation of latent representations or final images in a desired output format
-        (e.g., PIL image). The images are optionally saved to disk with a unique filename based on the prompt.
+        This method orchestrates the process of generating images by embedding the prompt, preparing the latent
+        vectors, iterating through timesteps in the diffusion process, and then decoding the latent representation
+        back into an image. It supports both the generation of latent representations or final images in a desired
+        output format (e.g., PIL image). The images are optionally saved to disk with a unique filename based
+        on the prompt.
 
         Args:
             prompt (Union[str, List[str]]):
@@ -564,7 +572,7 @@ class FluxInferencePipeline(nn.Module):
         else:
             raise ValueError("Either prompt or prompt_embeds must be provided.")
 
-        ## get text prompt embeddings
+        # get text prompt embeddings
         prompt_embeds, pooled_prompt_embeds, text_ids = self.encoder_prompt(
             prompt=prompt,
             prompt_embeds=prompt_embeds,
@@ -580,7 +588,7 @@ class FluxInferencePipeline(nn.Module):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-        ## prepare image latents
+        # prepare image latents
         num_channels_latents = self.transformer.in_channels // 4
         latents, latent_image_ids = self.prepare_latents(
             batch_size * num_images_per_prompt, num_channels_latents, height, width, dtype, device, generator, latents
@@ -642,15 +650,20 @@ class FluxInferencePipeline(nn.Module):
                 image = FluxInferencePipeline.numpy_to_pil(image)
         if save_to_disk:
             print('Saving to disk')
+            os.makedirs(output_path, exist_ok=True)
             assert len(image) == int(len(prompt) * num_images_per_prompt)
             prompt = [p[:40] + f'_{idx}' for p in prompt for idx in range(num_images_per_prompt)]
             for file_name, image in zip(prompt, image):
-                image.save(f'{file_name}.png')
+                image.save(os.path.join(output_path, f'{file_name}.png'))
 
         return image
 
 
 class FluxControlNetInferencePipeline(FluxInferencePipeline):
+    '''
+    Flux Contronlnet inference pipeline initializes controlnet component in addition to a normal flux pipeline.
+    '''
+
     def __init__(
         self,
         params: Optional[FluxModelParams] = None,
@@ -663,7 +676,7 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
         flux_controlnet: FluxControlNet = None,
     ):
         '''
-        Flux Contronlnet inference pipeline initializes controlnet component in addition to a normal flux pipeline.
+        Same as Flux Inference Pipeline with controlnet object.
         '''
         super().__init__(
             params,
@@ -792,6 +805,7 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
         control_guidance_end: float = 1.0,
         control_image: Union[Image.Image, torch.FloatTensor] = None,
         controlnet_conditioning_scale: Union[float, List[float]] = 1.0,
+        output_path: str = None,
     ):
         """
         Generates images based on a given text prompt and optionally incorporates control images and ControlNet for
@@ -800,7 +814,8 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
         This method generates images by embedding the prompt, preparing the latent vectors, iterating through timesteps
         in the diffusion process, and then decoding the latent representation back into an image. The method supports
         control images through ControlNet, where the `control_image` is used to condition the image generation.
-        It also allows you to specify custom guidance scales and other parameters. Generated images can be saved to disk if requested.
+        It also allows you to specify custom guidance scales and other parameters. Generated images can be saved
+        to disk if requested.
 
         Args:
             prompt (Union[str, List[str]]):
@@ -839,7 +854,8 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
             save_to_disk (bool):
                 Whether or not to save the generated images to disk. Default is True.
             offload (bool):
-                Whether or not to offload model components to CPU to free up GPU memory during the process. Default is False.
+                Whether or not to offload model components to CPU to free up GPU memory during the process.
+                Default is False.
             control_guidance_start (float):
                 The start point for control guidance to apply during the diffusion process.
             control_guidance_end (float):
@@ -877,7 +893,7 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
         else:
             raise ValueError("Either prompt or prompt_embeds must be provided.")
 
-        ## get text prompt embeddings
+        # get text prompt embeddings
         prompt_embeds, pooled_prompt_embeds, text_ids = self.encoder_prompt(
             prompt=prompt,
             prompt_embeds=prompt_embeds,
@@ -893,7 +909,7 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
-        ## prepare image latents
+        # prepare image latents
         num_channels_latents = self.transformer.in_channels // 4
         latents, latent_image_ids = self.prepare_latents(
             batch_size * num_images_per_prompt, num_channels_latents, height, width, dtype, device, generator, latents
@@ -1005,9 +1021,10 @@ class FluxControlNetInferencePipeline(FluxInferencePipeline):
                 image = FluxInferencePipeline.numpy_to_pil(image)
         if save_to_disk:
             print('Saving to disk')
+            os.makedirs(output_path, exist_ok=True)
             assert len(image) == int(len(prompt) * num_images_per_prompt)
             prompt = [p[:40] + f'_{idx}' for p in prompt for idx in range(num_images_per_prompt)]
             for file_name, image in zip(prompt, image):
-                image.save(f'{file_name}.png')
+                image.save(os.path.join(output_path, f'{file_name}.png'))
 
         return image

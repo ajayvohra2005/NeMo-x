@@ -239,13 +239,13 @@ class MegatronBertModel(MegatronBaseModel):
                 )
             else:
                 batch, batch_idx, dataloader_idx = next(dataloader_iter)
-                if parallel_state.is_pipeline_first_stage():
+                if parallel_state.is_pipeline_first_stage(ignore_virtual=False):
                     tokens = batch['text'].to(get_current_device())
                     types = batch['types'].to(get_current_device())
                     sentence_order = batch['is_random'].to(get_current_device())
                     padding_mask = batch['padding_mask'].to(get_current_device())
                     loss_mask, lm_labels = None, None
-                elif parallel_state.is_pipeline_last_stage():
+                elif parallel_state.is_pipeline_last_stage(ignore_virtual=False):
                     loss_mask = batch['loss_mask'].to(get_current_device())
                     lm_labels = batch['labels'].to(get_current_device())
                     sentence_order = batch['is_random'].to(get_current_device())
@@ -325,7 +325,7 @@ class MegatronBertModel(MegatronBaseModel):
                 lm_labels=lm_labels,
                 checkpoint_activations_all_layers=checkpoint_activations_all_layers,
             )
-        if parallel_state.is_pipeline_last_stage():
+        if parallel_state.is_pipeline_last_stage(ignore_virtual=False):
             # Return the output tensor of encoder
             # and transpose from [seq_len, batch, hidden] to [batch, seq_len, hidden]
             if torch.is_tensor(output_tensor):
@@ -567,7 +567,7 @@ class MegatronBertModel(MegatronBaseModel):
 
     def on_validation_epoch_end(self):
         """Run validation epoch end aggregation."""
-        if parallel_state.is_pipeline_last_stage():
+        if parallel_state.is_pipeline_last_stage(ignore_virtual=False):
             averaged_loss = torch.stack(self.validation_step_outputs).mean()
         else:
             averaged_loss = torch.tensor(0.0, dtype=torch.float32).to(device=get_current_device())

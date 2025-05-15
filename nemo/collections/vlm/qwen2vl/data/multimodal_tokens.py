@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,9 @@ QUAD_START_TOKEN_INDEX = 151650
 QUAD_END_TOKEN_INDEX = 151651
 VISION_START_TOKEN_INDEX = 151652
 VISION_END_TOKEN_INDEX = 151653
+PAD_TOKEN_INDEX = 151643
+HF_IMAGE_TOKEN_INDEX = 151655
+HF_VIDEO_TOKEN_INDEX = 151656
 
 SPECIAL_TOKEN_MAP = [
     (Qwen2VLImageToken.token_str, Qwen2VLImageToken.token_index),

@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -198,6 +198,7 @@ class HFPhi3Exporter(io.ModelConnector[Phi3Model, "Phi3ForCausalLM"]):
         from transformers import Phi3Config as HFPhi3Config
 
         return HFPhi3Config(
+            architectures=["Phi3ForCausalLM"],
             num_hidden_layers=source.num_layers,
             hidden_size=source.hidden_size,
             intermediate_size=source.ffn_hidden_size,
